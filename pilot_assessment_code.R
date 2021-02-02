@@ -3,6 +3,14 @@
 # Code to support the pilot assessment
 # written by clare betts january 2021
 #
+# Improvements needed:
+# 1 - correct instances where the indicator is moving away from target
+# 2 - adapt rate of change to be calculated from most recent 5 years of data
+# 3 - check result for A1 NH3
+# 4 - if target is 0, adjust calculations accordingly
+# 5 - check behavior where no target exists
+# 6 - long term = 10 or more
+# 7 - short term = 5
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
@@ -12,174 +20,39 @@ library(viridis)
 
 setwd("C:\\Users\\m994810\\Desktop\\1. EAU")
 
+# read in helper functions
+source("EAU_pilot_assessment\\pilot_assessment_functions.R")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# function to calculate years until target reached
+# User set some inputs
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# year until target reached (n)
-# n = log(current value/target value) / log(1 + rate of change)
-# https://intl.siyavula.com/read/maths/grade-12/finance/03-finance-01
-# this function doesn't yet distinguish between those indicators which are traveling away 
-# from their target because the target is already met, and those where the indicators are s
-# imply moving in teh wrong direction
-years_until_target_reached <- function(rate.of.change, temp_target, final.value){
-  
-  # if the trend is decreasing
-  if (rate.of.change < 0){
-    years <- case_when(
-      # if target is greater than the final value
-      # i.e. target met already
-      temp_target > final.value ~ Inf,
-      # everything else calculate number of years
-      TRUE ~ abs(log(final.value/temp_target)/log(1 + rate.of.change)))
-  }
-  
-  # if the trend is increasing
-  if (rate.of.change > 0) {
-    years <- case_when(
-      # if the target is smaller than the final value 
-      # i.e. target met already
-      temp_target < final.value ~ Inf,
-      # everything else calculate number of years
-      TRUE ~ abs(log(final.value/temp_target)/log(1 + rate.of.change)))
-  }
-  # no condition for if trend == 0
-  
-  return(years)
-}
+
+long.term <- 10
+short.term <- 5
+
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# function to do trend assessment
+# loading & processing data
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# x <- variables[1]
-trend_assess_this <- function(x, term = c("short", "long"),
-                              targets, 
-                              thresholds, 
-                              smoothed_trend){
-  
-  if (term == "long"){
-    # alter number of years here
-    temp_dat <- smoothed_trend[[x]] # %>%
-    #   tail(10) # last 10 values
-  } 
-  if(term == "short"){
-    temp_dat <- smoothed_trend[[variables[i]]] %>%
-      tail(5) # last 5 values
-  }
-  
-  final.value <- rev(temp_dat)[1]
-  first.value <- temp_dat[1]
-  
-  rate.of.change <- ((final.value-first.value)/first.value)/length(temp_dat)
-  
-  # get threshold
-  temp_threshold <- thresholds %>%
-    dplyr::filter(variable == x) 
-  
-  target_trend <- temp_threshold$target_trend
-  
-  # select just thresholds
-  temp_threshold <- temp_threshold %>%
-    select(Threshold1, Threshold2, Threshold3, Threshold4) 
-  
-  # if target trend is to decrease then reverse the labels
-  trend_labels <- c("strong decline", "moderate decline", "little change", "moderate improvement", "strong improvement") 
-  
-  if (target_trend == "increase") {
-    trend_labels <- trend_labels
-  } 
-  if (target_trend == "decrease") {
-    trend_labels <- rev(trend_labels)
-  }
-  
-  # assign rate of change assessment
-  # this seems inelegant, return to this when i have more time
-  category <- case_when(rate.of.change < temp_threshold[1] ~ trend_labels[1],
-                        rate.of.change >= temp_threshold$Threshold1 & rate.of.change < temp_threshold$Threshold2 ~ trend_labels[2],
-                        rate.of.change >= temp_threshold$Threshold2 & rate.of.change < temp_threshold$Threshold3 ~ trend_labels[3],
-                        rate.of.change >= temp_threshold$Threshold3 & rate.of.change < temp_threshold$Threshold3 ~ trend_labels[4],
-                        rate.of.change > temp_threshold$Threshold4 ~ trend_labels[5])
-  
-  temp_target <- targets$target[targets$variable == x]
-  
-  # calculate years until target met
-  years <- years_until_target_reached(rate.of.change, temp_target, final.value)
-  
-  # return result
-  return(list(first.value = first.value,
-              final.value = final.value,
-              rate.of.change = rate.of.change,
-              category = category,
-              years = years))
-}
+metadata <- read.csv("metadata.csv") %>%
+  load_process_metadata()
 
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# function to do target assessment
-# This will need to be returned to later on, at present it is a bit crude
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-# x <- assessment.long
-target_assess_this <- function(x){
-  x <- x %>%
-    dplyr::select(variable, rate.of.change,  years,  target, category) %>%
-    mutate(
-      category = case_when(
-        # all those with a long term assessment of "little change" should be "Little progress made"
-        category == "little change" ~ "Little progress made",
-        # all those with infinite years to target shoudl be "Little progress made"
-        is.infinite(years) ~ "Little progress made",
-        # all which will reach their target in more than 15 years should be "Progress made but insufficient to meet target"
-        years > 15 ~ "Progress made but insufficient to meet target",
-        # all which will reach their target in less than 15 years should be "On track to achieve target"
-        years <= 15 ~ "On track to achieve target",
-        # all which will reach their target in less than 5 years should be "On track to exceed target"
-        years < 5 ~ "On track to exceed target"
-      )
-    )
-  return(x)
-}
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# loading data
-# processing data
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-metadata <- read.csv("metadata.csv")
-
-# store targets
-targets <- unique(metadata[, c("variable", "target")])
-
-# store thresholds
-thresholds <- metadata[, c("variable", "Threshold1", "Threshold2", "Threshold3", "Threshold4", "target_trend")]
-
-goal.indicator.lookup <- unique(metadata[, c("variable", "Indicator", "Primary.goal", "natural.capital.framework")]) 
+targets <- metadata$targets
+thresholds <- metadata$thresholds
+goal.indicator.lookup <- metadata$goal.indicator.lookup
+rm(metadata)
 
 dat <- read.csv("25.year.data.csv") %>% 
-  mutate(
-    # value as numeric
-    value = as.numeric(value),
-    # variable as factor
-    variable = as.factor(variable)
-    ) %>%
-  # get rid of NAs
-  drop_na() %>%
-  # get rid of unused factor levels
-  droplevels() %>%
-  # group by variable
-  group_by(variable)
-
-variables <- levels(dat$variable)
-
-dat_list <- dat  %>%
-  # split in to a list of data frames
-  group_split() %>%
-  # assign names
-  purrr::set_names(variables)
+   load_process_data()
+dat_list <- dat$dat_list
+variables <- dat$variables
+rm(dat)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # calculating smoothed trend
+# come back this warnings produced
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # use loess smoother to model value ~ time, and extract predicted values
@@ -190,59 +63,15 @@ smoothed_trend <- map(dat_list, ~predict(loess(value ~ year, data = .x))) %>%
 # Do assessment
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# a data frame to store assessment results in
-assessment.short <- data.frame("variable" = variables,
-                         "first.value" = NA,
-                         "final.value" = NA,
-                         "rate.of.change" = NA, 
-                         "category" = NA, 
-                         "years" = NA)
+assessments <- do_assessment(variables = variables,
+                             targets = targets, 
+                             thresholds = thresholds, 
+                             smoothed_trend = smoothed_trend)
 
-assessment.short <- left_join(assessment.short, targets)
-
-assessment.long <- assessment.short
-
-# Do a long term and short term assessment on all variables
-for (i in 1:length(variables)){
-  
- long.term.assessment <- trend_assess_this(variables[i], term = "long",
-                                           targets = targets, 
-                                           thresholds = thresholds, 
-                                           smoothed_trend = smoothed_trend)
- 
- assessment.long$first.value[i] <- long.term.assessment$first.value
- assessment.long$final.value[i] <- long.term.assessment$final.value
- assessment.long$rate.of.change[i] <- long.term.assessment$rate.of.change
- assessment.long$category[i] <- long.term.assessment$category
- assessment.long$years[i] <- long.term.assessment$years
- 
- short.term.assessment <- trend_assess_this(variables[i], term = "short",
-                                           targets = targets, 
-                                           thresholds = thresholds, 
-                                           smoothed_trend = smoothed_trend)
- 
- assessment.short$first.value[i] <- short.term.assessment$first.value
- assessment.short$final.value[i] <- short.term.assessment$final.value
- assessment.short$rate.of.change[i] <- short.term.assessment$rate.of.change
- assessment.short$category[i] <- short.term.assessment$category
- assessment.short$years[i] <- short.term.assessment$years
- 
-}        
-
-# convert long term assessment into an assessment against targets
-assessment.targets <- target_assess_this(assessment.long)
-
-
-# add indicator & goal onto assessments
-assessment.long <- full_join(assessment.long, goal.indicator.lookup)
-assessment.short <- full_join(assessment.short, goal.indicator.lookup)
-assessment.targets <- full_join(assessment.targets, goal.indicator.lookup)
-
-
-# fill in "unknown" for all those where no trend assessment could be done
-assessment.long$category[is.na(assessment.long$category)] <- "unknown"
-assessment.short$category[is.na(assessment.short$category)] <- "unknown"
-assessment.targets$category[is.na(assessment.targets$category)] <- "unknown"
+assessment.short <- assessments$assessment.short
+assessment.long <- assessments$assessment.long
+assessment.targets <- assessments$assessment.target
+rm(assessments)
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -320,18 +149,18 @@ assessment.table.builder <- function(x, cols = colour.lookup){
 # function to convert the assessment table to a plot
 assessment.plot <- function(x){
   ggplot(x, aes(x = time_period, y = value, fill = trend)) +
-      geom_bar(position="stack", stat="identity") + 
-      scale_y_continuous(labels = scales::percent) + 
-      scale_fill_manual(values = levels(x$cols)) +
-      theme(panel.background = element_blank(),
-            axis.line = element_line(colour = "black"),
-            legend.position="none",
-            plot.title = element_text(hjust = 0.5, size = 25)) +
-      labs(x = "",
-           y = "") + 
-      geom_text(aes(label = trend), 
-                size = 4, 
-                position = position_stack(vjust = 0.5)) 
+    geom_bar(position="stack", stat="identity") + 
+    scale_y_continuous(labels = scales::percent) + 
+    scale_fill_manual(values = levels(x$cols)) +
+    theme(panel.background = element_blank(),
+          axis.line = element_line(colour = "black"),
+          legend.position="none",
+          plot.title = element_text(hjust = 0.5, size = 25)) +
+    labs(x = "",
+         y = "") + 
+    geom_text(aes(label = trend), 
+              size = 4, 
+              position = position_stack(vjust = 0.5)) 
 }
 
 
@@ -342,7 +171,7 @@ assessment.plot <- function(x){
 # summarise by primary goal
 primary_goals <- unique(goal.indicator.lookup$Primary.goal)
 
-i <- "Thriving plants and wildlife" 
+i <- "Clean air" 
 
 # summarise by goal
 for (i in primary_goals){
@@ -351,13 +180,13 @@ for (i in primary_goals){
                      "term" = c(rep("Long term", nrow(assessment.long)),
                                 rep("Short term", nrow(assessment.short)))) %>%
     dplyr::filter(Primary.goal == i)
-    
+  
   assessment.table <- assessment.table.builder(temp)
   
   figure <- assessment.plot(assessment.table) +
     labs(title = i)
-    
-    print(figure)
+  
+  print(figure)
 } 
 
 # summarise by indicator
@@ -369,7 +198,7 @@ for (i in sort(unique(assessment$Indicator))){
                      "term" = c(rep("Long term", nrow(assessment.long)),
                                 rep("Short term", nrow(assessment.short)))) %>%
     dplyr::filter(Indicator == i)
-
+  
   # if there is data for the indicator
   if(nrow(temp) > 0){
     assessment.table <- assessment.table.builder(temp)
@@ -400,7 +229,7 @@ for (i in sort(unique(assessment$natural.capital.framework))){
   }
 } 
 
-  
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plot results - target assessment
 # an example
@@ -487,7 +316,7 @@ temp <- mutate(temp,
                                  category == "little change" ~ 3,
                                  category == "moderate increase" ~ 4,
                                  category == "strong increase" ~ 5)
-               ) %>%
+) %>%
   arrange(score)
 
 temp$variable <- factor(temp$variable, levels = temp$variable[order(temp$score)])
@@ -532,7 +361,7 @@ radarchart(to_plot,
            axistype = 0,
            seg = 5,      #Number of segments
            vlabels = stringr::str_wrap(temp$variable, width = 20)
-           )
+)
 
 ## Thrivig plants and wildlife
 temp <- assessment[assessment$Primary.goal == "Thriving plants and wildlife", ] %>%
@@ -546,7 +375,7 @@ temp <- assessment[assessment$Primary.goal == "Thriving plants and wildlife", ] 
             colour.lookup, 
             by= c("category" = "trend")) %>%
   arrange(Indicator)
-  
+
 
 ggplot(temp, aes(x = variable, y = score + 1)) +
   geom_bar(stat="identity", fill = temp$cols) +
