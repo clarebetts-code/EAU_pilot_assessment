@@ -38,7 +38,7 @@ short.term <- 5
 
 read.csv("metadata.csv") %>%
   load_process_metadata() %>%
-  list2env(envir = .GlobalEnv)
+  list2env(envir = .GlobalEnv)# Can use assign() from base to do this inside function
 
 read.csv("25.year.data.csv") %>%
   load_process_data() %>%
@@ -72,7 +72,7 @@ do_assessment(
 
 assessment.long <- read.csv("assessment.long.csv")
 assessment.short <- read.csv("assessment.short.csv")
-assessment.targets <- read.csv("assessment.targets.csv")
+assessment.target <- read.csv("assessment.target.csv")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # visualisation helper functions
