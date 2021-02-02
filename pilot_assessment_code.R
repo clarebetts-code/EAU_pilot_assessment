@@ -72,7 +72,7 @@ do_assessment(
 
 assessment.long <- read.csv("assessment.long.csv")
 assessment.short <- read.csv("assessment.short.csv")
-assessment.target <- read.csv("assessment.target.csv")
+assessment.target <- read.csv("assessment.target.csv")#changed object name for consistency
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # visualisation helper functions
