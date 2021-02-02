@@ -36,19 +36,13 @@ short.term <- 5
 # loading & processing data
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-metadata <- read.csv("metadata.csv") %>%
-  load_process_metadata()
+read.csv("metadata.csv") %>%
+  load_process_metadata() %>%
+  list2env(envir = .GlobalEnv)
 
-targets <- metadata$targets
-thresholds <- metadata$thresholds
-goal.indicator.lookup <- metadata$goal.indicator.lookup
-rm(metadata)
-
-dat <- read.csv("25.year.data.csv") %>% 
-   load_process_data()
-dat_list <- dat$dat_list
-variables <- dat$variables
-rm(dat)
+read.csv("25.year.data.csv") %>%
+  load_process_data() %>%
+  list2env(envir = .GlobalEnv)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # calculating smoothed trend
