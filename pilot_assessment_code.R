@@ -54,32 +54,17 @@ smoothed_trend <- map(dat_list, ~predict(loess(value ~ year, data = .x))) %>%
   set_names(variables)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Do assessment
+# Do assessment and save output
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-assessments <- do_assessment(variables = variables,
-                             targets = targets, 
-                             thresholds = thresholds, 
-                             smoothed_trend = smoothed_trend)
+do_assessment(
+  variables = variables,
+  targets = targets,
+  thresholds = thresholds,
+  smoothed_trend = smoothed_trend
+) %>%
+  map2(.y=names(.),~write_csv(.x,path = paste0(.y,".csv")))
 
-assessment.short <- assessments$assessment.short
-assessment.long <- assessments$assessment.long
-assessment.targets <- assessments$assessment.target
-rm(assessments)
-
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# save assessment
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-write.csv(assessment.long, 
-          "assessment.long.csv", 
-          row.names = FALSE)
-write.csv(assessment.short, 
-          "assessment.short.csv", 
-          row.names = FALSE)
-write.csv(assessment.targets, 
-          "assessment.targets.csv", 
-          row.names = FALSE)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # load assessment
