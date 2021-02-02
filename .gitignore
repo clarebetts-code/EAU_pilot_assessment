@@ -2,3 +2,7 @@
 .Rhistory
 .RData
 .Ruserdata
+25.year.data.csv
+metadata.csv
+.DS_Store
+*.csv

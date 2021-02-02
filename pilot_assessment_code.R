@@ -18,10 +18,10 @@ library(tidyverse)
 library(directlabels)
 library(viridis)
 
-setwd("C:\\Users\\m994810\\Desktop\\1. EAU")
+#setwd("C:\\Users\\m994810\\Desktop\\1. EAU")
 
 # read in helper functions
-source("EAU_pilot_assessment\\pilot_assessment_functions.R")
+source("pilot_assessment_functions.R")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # User set some inputs
@@ -36,19 +36,13 @@ short.term <- 5
 # loading & processing data
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-metadata <- read.csv("metadata.csv") %>%
-  load_process_metadata()
+read.csv("metadata.csv") %>%
+  load_process_metadata() %>%
+  list2env(envir = .GlobalEnv)# Can use assign() from base to do this inside function
 
-targets <- metadata$targets
-thresholds <- metadata$thresholds
-goal.indicator.lookup <- metadata$goal.indicator.lookup
-rm(metadata)
-
-dat <- read.csv("25.year.data.csv") %>% 
-   load_process_data()
-dat_list <- dat$dat_list
-variables <- dat$variables
-rm(dat)
+read.csv("25.year.data.csv") %>%
+  load_process_data() %>%
+  list2env(envir = .GlobalEnv)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # calculating smoothed trend
@@ -60,32 +54,17 @@ smoothed_trend <- map(dat_list, ~predict(loess(value ~ year, data = .x))) %>%
   set_names(variables)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Do assessment
+# Do assessment and save output
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-assessments <- do_assessment(variables = variables,
-                             targets = targets, 
-                             thresholds = thresholds, 
-                             smoothed_trend = smoothed_trend)
+do_assessment(
+  variables = variables,
+  targets = targets,
+  thresholds = thresholds,
+  smoothed_trend = smoothed_trend
+) %>%
+  map2(.y=names(.),~write_csv(.x,path = paste0(.y,".csv")))
 
-assessment.short <- assessments$assessment.short
-assessment.long <- assessments$assessment.long
-assessment.targets <- assessments$assessment.target
-rm(assessments)
-
-
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# save assessment
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-write.csv(assessment.long, 
-          "assessment.long.csv", 
-          row.names = FALSE)
-write.csv(assessment.short, 
-          "assessment.short.csv", 
-          row.names = FALSE)
-write.csv(assessment.targets, 
-          "assessment.targets.csv", 
-          row.names = FALSE)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # load assessment
@@ -93,7 +72,7 @@ write.csv(assessment.targets,
 
 assessment.long <- read.csv("assessment.long.csv")
 assessment.short <- read.csv("assessment.short.csv")
-assessment.targets <- read.csv("assessment.targets.csv")
+assessment.target <- read.csv("assessment.target.csv")#changed object name for consistency
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # visualisation helper functions
