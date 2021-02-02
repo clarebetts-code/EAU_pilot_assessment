@@ -18,10 +18,10 @@ library(tidyverse)
 library(directlabels)
 library(viridis)
 
-setwd("C:\\Users\\m994810\\Desktop\\1. EAU")
+#setwd("C:\\Users\\m994810\\Desktop\\1. EAU")
 
 # read in helper functions
-source("EAU_pilot_assessment\\pilot_assessment_functions.R")
+source("pilot_assessment_functions.R")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # User set some inputs
