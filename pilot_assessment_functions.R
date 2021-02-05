@@ -452,6 +452,53 @@ visualise_assessment <- function(classification = "Primary.goal",
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# function to visualise target assessment (dots)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#x <- assessment_target
+visualise_assessment_dot <- function(x,
+                                     classification = "Group", 
+                                     group = "Atmosphere",
+                                     myLab = "Target assessment"){
+  # convert category into a score
+  x <- x %>%
+    mutate(score = case_when(category == "Unknown" ~ 0,
+                             category == "No target" ~ 0,
+                             category == "Insufficient  progress" ~ 1,
+                             category == "Some progress towards target" ~ 2,
+                             category == "Substantial progress" ~ 3,
+                             category == "Target met" ~ 4)) %>%
+    dplyr::filter(.data[[eval(classification)]] == group,
+                  score > 0) %>%
+    dplyr::arrange(score) %>%
+    # make variable a factor to preserve the ordering
+    dplyr::mutate(variable = factor(variable, levels = variable))
+  
+  figure <- ggplot(x, aes(x = reorder(variable, desc(variable)), y = score, colour = score)) +
+    geom_point(size = 8) +
+    coord_flip() +
+    theme_bw() +
+    theme(
+      panel.grid.minor.x = element_blank(),
+      panel.grid.minor.y = element_blank(),
+      panel.grid.major.y = element_blank(),
+      legend.position="none") +
+    scale_y_continuous(labels = rev(c("Target \nmet",
+                                      "Substantial \nprogress",
+                                      "Some progress \ntowards target",
+                                      "Insufficient  \nprogress")),
+                       breaks = c(1, 2, 3, 4),
+                       limits = c(1, 4)) +
+    scale_color_gradient(low= "#DB4325", high="#006164") +
+    labs(x = "",
+         y = "",
+         title = myLab)
+  
+  print(figure)
+  
+}
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Function to plot a smoothed trend
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #dat <- dat_list[[1]]
