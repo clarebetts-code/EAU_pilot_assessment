@@ -168,7 +168,10 @@ cowplot::plot_grid(p1, p2, p3,
 
 
 
-
+visualise_assessment_dot(x = assessment_target,
+                         classification = "Group", 
+                         group = "Atmosphere",
+                         myLab = "Atmosphere")
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -176,44 +179,9 @@ cowplot::plot_grid(p1, p2, p3,
 # an example
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-assessment_target <- assessment_target %>%
-  mutate(score = case_when(category == "Unknown" ~ 0,
-                           category == "No target" ~ 0,
-                           category == "Insufficient  progress" ~ 1,
-                           category == "Some progress towards target" ~ 2,
-                           category == "Substantial progress" ~ 3,
-                           category == "Target met" ~ 4)) %>%
-  arrange(score)
 
-to_plot <- assessment_target %>%
-  filter(Group == "Atmosphere",
-         score > 0) %>%
-  dplyr::arrange(score) %>%
-  # make variable a factor to preserve the ordering
-  dplyr::mutate(variable = factor(variable, levels = variable))
 
-ggplot(to_plot, aes(x = reorder(variable, desc(variable)), y = score, colour = score)) +
-  geom_point(size = 8) +
-  coord_flip() +
-  theme_bw() +
-  theme(
-    panel.grid.minor.x = element_blank(),
-    panel.grid.minor.y = element_blank(),
-    panel.grid.major.y = element_blank(),
-    #axis.text = element_text( size=48 ),
-    legend.position="none"
-  ) +
-  scale_y_continuous(labels = rev(c("Target \nmet",
-                                    "Substantial \nprogress",
-                                    "Some progress \ntowards target",
-                                    "Insufficient  \nprogress")),
-                     breaks = c(1, 2, 3, 4),
-                     limits = c(1, 4)) +
-  scale_color_gradient(low= "#DB4325", high="#006164") +
-  ylab("") +
-  xlab("")
 
-temp <- assessment_targets[assessment_targets$Primary.goal == "Thriving plants and wildlife", ] 
 
 
 #

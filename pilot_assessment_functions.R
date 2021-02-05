@@ -15,7 +15,7 @@
 
 #' @title load and process metadata
 #' load_process_metadata takes an input csv and parses it to return three
-#' dataframes, targets, thresholds and goal.indicator.lookup. These outputs are
+#' dataframes: targets, thresholds and goal.indicator.lookup. These outputs are
 #' assigned directly to the global environment.
 #'
 #' @param filename the name of the file which the data are to be read from.
@@ -62,30 +62,55 @@ load_process_metadata <- function(filename){
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # file must contain columns "value", "variable"
 # foo <- "25.year.data.csv"
-load_process_data <- function(foo){
+
+#' @title Load and process data
+#' @description load_process_data takes an input csv and parses it to return two
+#' dataframes: dat_list and variables. These outputs are
+#' assigned directly to the global environment.
+#'
+#' @param filename the name of the file which the data are to be read from.
+#' Each row of the table appears as one line of the file. If it does not
+#' contain an absolute path, the file name is relative to the
+#' current working directory, getwd().
+#' 
+#' @return Two dataframes.
+#' @export
+#'
+#' @examples
+load_process_data <- function(filename){
+  
+  # Checks that the supplied file path is a string
+  if(!is.character(filename)){
+    stop("Filename must be a string")
+  }
+  
+  # Checks that the supplied file actually exists. 
+  if(!file.exists(filename)){
+    stop(paste0("Cannot find a file called '", filename, "', check filename and try again."))
+  }
   
   # read in data
-  dat <- read.csv(foo)
+  dat <- read.csv(filename)
   
   dat <- dat %>% 
-    mutate(
+    dplyr::mutate(
       # value as numeric
       value = as.numeric(value),
       # variable as factor
       variable = as.factor(variable)
     ) %>%
     # get rid of NAs
-    drop_na() %>%
+    tidyr::drop_na() %>%
     # get rid of unused factor levels
     droplevels() %>%
     # group by variable
-    group_by(variable)
+    dplyr::group_by(variable)
   
   variables <- levels(dat$variable)
   
   dat_list <- dat  %>%
     # split in to a list of data frames
-    group_split() %>%
+    dplyr::group_split() %>%
     # assign names
     purrr::set_names(variables)
   
@@ -100,7 +125,23 @@ load_process_data <- function(foo){
 # functions calculate the smoothed trend and return warnings where appropriate
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # x <- dat_list
+#' @title get_smoothed_trend
+#' @description Apply a smoothed trend to your data, predicting value from year.
+#'
+#' @param x A dataframe (dat_list) output by load_process_data
+#'
+#' @return A list of smoothed trends
+#' @export
+#'
 get_smoothed_trend <- function(x){
+  
+  # function to do the smoothing
+  # x <- dat_list[[1]]
+  quiet_smoother <- quietly(function(x){
+    predict(loess(value ~ year, data = x))
+  })
+  
+  
   evie <- map(x, ~quiet_smoother(x=.x)) %>%
     set_names(variables)
   
@@ -119,11 +160,7 @@ get_smoothed_trend <- function(x){
   return(evie_result)
 }
 
-# function to do the smoothing
-# x <- dat_list[[1]]
-quiet_smoother <- quietly(function(x){
-  predict(loess(value ~ year, data = x))
-})
+
 
 
 
@@ -445,6 +482,53 @@ visualise_assessment <- function(classification = "Primary.goal",
   figure <- assessment_plot(assessment_table) +
     labs(title = group,
          x = myLab)
+  
+  print(figure)
+  
+}
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# function to visualise target assessment (dots)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#x <- assessment_target
+visualise_assessment_dot <- function(x,
+                                     classification = "Group", 
+                                     group = "Atmosphere",
+                                     myLab = "Target assessment"){
+  # convert category into a score
+  x <- x %>%
+    mutate(score = case_when(category == "Unknown" ~ 0,
+                             category == "No target" ~ 0,
+                             category == "Insufficient  progress" ~ 1,
+                             category == "Some progress towards target" ~ 2,
+                             category == "Substantial progress" ~ 3,
+                             category == "Target met" ~ 4)) %>%
+    dplyr::filter(.data[[eval(classification)]] == group,
+                  score > 0) %>%
+    dplyr::arrange(score) %>%
+    # make variable a factor to preserve the ordering
+    dplyr::mutate(variable = factor(variable, levels = variable))
+  
+  figure <- ggplot(x, aes(x = reorder(variable, desc(variable)), y = score, colour = score)) +
+    geom_point(size = 8) +
+    coord_flip() +
+    theme_bw() +
+    theme(
+      panel.grid.minor.x = element_blank(),
+      panel.grid.minor.y = element_blank(),
+      panel.grid.major.y = element_blank(),
+      legend.position="none") +
+    scale_y_continuous(labels = rev(c("Target \nmet",
+                                      "Substantial \nprogress",
+                                      "Some progress \ntowards target",
+                                      "Insufficient  \nprogress")),
+                       breaks = c(1, 2, 3, 4),
+                       limits = c(1, 4)) +
+    scale_color_gradient(low= "#DB4325", high="#006164") +
+    labs(x = "",
+         y = "",
+         title = myLab)
   
   print(figure)
   
