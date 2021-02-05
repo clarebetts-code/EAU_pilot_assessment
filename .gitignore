@@ -6,3 +6,4 @@
 metadata.csv
 .DS_Store
 *.csv
+smoothed_trends/
