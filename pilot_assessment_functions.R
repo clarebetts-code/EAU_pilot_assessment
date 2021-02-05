@@ -28,6 +28,16 @@
 #'
 load_process_metadata <- function(filename){
   
+  # Checks that the supplied file path is a string
+  if(!is.character(filename)){
+    stop("Filename must be a string")
+  }
+  
+  # Checks that the supplied file actually exists. 
+  if(!file.exists(filename)){
+    stop(paste0("Cannot find a file called '", filename, "', check filename and try again."))
+  }
+  
   # read in data
   dat <- read.csv(filename)
   
