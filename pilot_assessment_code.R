@@ -4,19 +4,15 @@
 # written by clare betts january 2021
 #
 # Improvements needed:
-# 1 - correct instances where the indicator is moving away from target
-# 2 - adapt rate of change to be calculated from most recent 5 years of data
-# 3 - check result for A1 NH3
-# 4 - if target is 0, adjust calculations accordingly
-# 5 - check behavior where no target exists
-# 6 - long term = 10 or more
-# 7 - short term = 5
+# 1 - if target is 0, adjust calculations accordingly
+#
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 library(tidyverse)
 library(directlabels)
 library(viridis)
+library(scales)
 
 
 # read in helper functions
@@ -26,8 +22,9 @@ source("pilot_assessment_functions.R")
 # User set some inputs
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-long.term <- 10
-short.term <- 5
+long_term <- 10
+short_term <- 5
+target_term <- 5 # not currently implemented
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # loading & processing data
@@ -40,12 +37,14 @@ load_process_data("25.year.data.csv")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # calculating smoothed trend
-# come back this warnings produced
+# warnings produced because some indicators have too few data
+# need to make an informed choice about how appropriate it is to do trend assessment
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # use loess smoother to model value ~ time, and extract predicted values
-smoothed_trend <- map(dat_list, ~predict(loess(value ~ year, data = .x))) %>%
-  set_names(variables)
+save_smoothed_trend(dat_list)
+
+smoothed_trend <- get_smoothed_trend(dat_list)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Do assessment and save output
@@ -64,14 +63,14 @@ do_assessment(
 # load assessment
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-assessment.long <- read.csv("assessment.long.csv") %>%
-  left_join(goal.indicator.lookup)
+assessment_long <- read.csv("assessment_long.csv") %>%
+  left_join(goal_indicator_lookup)
 
-assessment.short <- read.csv("assessment.short.csv")%>%
-  left_join(goal.indicator.lookup)
+assessment_short <- read.csv("assessment_short.csv")%>%
+  left_join(goal_indicator_lookup)
 
-assessment.target <- read.csv("assessment.target.csv")%>%
-  left_join(goal.indicator.lookup)
+assessment_target <- read.csv("assessment_target.csv")%>%
+  left_join(goal_indicator_lookup)
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -80,14 +79,8 @@ assessment.target <- read.csv("assessment.target.csv")%>%
 
 # colours:
 # https://www.visualisingdata.com/2019/08/five-ways-to-design-for-red-green-colour-blindness/
-
-# helper functions
-
-# helper function to get the number of colours right for graphs
-
-
 # increase = good, decrease = bad
-colour.lookup <- data.frame(trend = c("Strong improvement",
+colour_lookup <- data.frame(trend = c("Strong improvement",
                                       "Moderate improvement",
                                       "Little change",
                                       "Moderate decline", 
@@ -104,9 +97,9 @@ colour.lookup <- data.frame(trend = c("Strong improvement",
          cols = factor(cols, levels = unique(cols)))
 
 # visualise colours
-ggplot(colour.lookup, aes(trend, fill = trend)) +
+ggplot(colour_lookup, aes(trend, fill = trend)) +
   geom_bar() +
-  scale_fill_manual(values = colour.lookup$cols) +
+  scale_fill_manual(values = as.character(colour_lookup$cols)) +
   scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 10)) +
   theme(axis.text = element_blank(),
         axis.ticks = element_blank())
@@ -122,149 +115,78 @@ ggplot(colour.lookup, aes(trend, fill = trend)) +
 # summarise by primary goal of Clean Air
 visualise_assessment(classification = "Primary.goal", 
                      group = "Clean air",
-                     x = assessment.long,
+                     x = assessment_long,
                      myLab = "Long term")
 
 
 # summarise indicator A1
 visualise_assessment(classification = "Indicator", 
                      group = "A1",
-                     x = assessment.target,
+                     x = assessment_target,
                      myLab = "Target assessment")
 
 
 # summarise by natural capital framework of Pressure
 visualise_assessment(classification = "natural.capital.framework", 
                      group = "Pressure",
-                     x = assessment.target,
+                     x = assessment_target,
                      myLab = "Target assessment")
 
 
+# bespoke grouping
+assessment_short <- assessment_short %>%
+  mutate(Group = case_when(Indicator %in% c("A1", "A2", "A3", "A4", "A5", "A6", "A7", "B3", "D2", "D3", "E3", "J1") ~ "Atmosphere",
+                           TRUE ~ "Other"))
+
+assessment_long <- assessment_long %>%
+  mutate(Group = case_when(Indicator %in% c("A1", "A2", "A3", "A4", "A5", "A6", "A7", "B3", "D2", "D3", "E3", "J1") ~ "Atmosphere",
+                           TRUE ~ "Other"))
+
+assessment_target <- assessment_target %>%
+  mutate(Group = case_when(Indicator %in% c("A1", "A2", "A3", "A4", "A5", "A6", "A7", "B3", "D2", "D3", "E3", "J1") ~ "Atmosphere",
+                           TRUE ~ "Other"))
+
+p1 <- visualise_assessment(classification = "Group", 
+                           group = "Atmosphere",
+                           x = assessment_short,
+                           myLab = "Short term trend") +
+  labs(title = "")
+
+p2 <- visualise_assessment(classification = "Group", 
+                           group = "Atmosphere",
+                           x = assessment_long,
+                           myLab = "Long term trend")
+
+p3 <- visualise_assessment(classification = "Group", 
+                     group = "Atmosphere",
+                     x = assessment_target,
+                     myLab = "Target assessment")+
+  labs(title = "")
+
+cowplot::plot_grid(p1, p2, p3,
+                   nrow = 1)
+
+
+
+visualise_assessment_dot(x = assessment_target,
+                         classification = "Group", 
+                         group = "Atmosphere",
+                         myLab = "Atmosphere")
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Plot results - target assessment
+# an example
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 
 
 
 
 
-# 
-# 
-# 
-# # summarise by primary goal
-# primary_goals <- unique(goal.indicator.lookup$Primary.goal)
-# 
-# i <- "Clean air" 
-# 
-# # summarise by goal
-# for (i in primary_goals){
-#   temp <- data.frame("Primary.goal" = c(assessment.long$Primary.goal, assessment.short$Primary.goal),
-#                      "category" = c(assessment.long$category, assessment.short$category),
-#                      "term" = c(rep("Long term", nrow(assessment.long)),
-#                                 rep("Short term", nrow(assessment.short)))) %>%
-#     dplyr::filter(Primary.goal == i)
-#   
-#   assessment.table <- assessment.table.builder(temp)
-#   
-#   figure <- assessment.plot(assessment.table) +
-#     labs(title = i)
-#   
-#   print(figure)
-# } 
-# 
-# # summarise by indicator
-# i <- "A1"
-# 
-# for (i in sort(unique(assessment$Indicator))){
-#   temp <- data.frame("Indicator" = c(assessment.long$Indicator, assessment.short$Indicator),
-#                      "category" = c(assessment.long$category, assessment.short$category),
-#                      "term" = c(rep("Long term", nrow(assessment.long)),
-#                                 rep("Short term", nrow(assessment.short)))) %>%
-#     dplyr::filter(Indicator == i)
-#   
-#   # if there is data for the indicator
-#   if(nrow(temp) > 0){
-#     assessment.table <- assessment.table.builder(temp)
-#     
-#     figure <- assessment.plot(assessment.table) +
-#       labs(title = i)
-#     
-#     print(figure)
-#   }
-# } 
-# 
-# # summarise by natural capital framework
-# i <- "Pressure"
-# for (i in sort(unique(assessment$natural.capital.framework))){
-#   temp <- data.frame("natural.capital.framework" = c(assessment.long$natural.capital.framework, assessment.short$natural.capital.framework),
-#                      "category" = c(assessment.long$category, assessment.short$category),
-#                      "term" = c(rep("Long term", nrow(assessment.long)),
-#                                 rep("Short term", nrow(assessment.short)))) %>%
-#     dplyr::filter(natural.capital.framework == i)
-#   
-#   if(nrow(temp) > 0){
-#     assessment.table <- assessment.table.builder(temp)
-#     
-#     figure <- assessment.plot(assessment.table) +
-#       labs(title = i)
-#     
-#     print(figure)
-#   }
-# } 
-# 
-# 
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# # Plot results - target assessment
-# # an example
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# 
-# colour.lookup <- data.frame(score = c("On track to exceed target",
-#                                       "On track to achieve target",
-#                                       "Progress made but insufficient to meet target", 
-#                                       "Little progress made",
-#                                       "unknown"),
-#                             cols = c("#006164", "#57C4AD", "#EDA247", "#DB4325", "grey"))
-# 
-# temp <- data.frame(variable = c("A1", "A2", "A3", "A4", "A5", "A6", "A7"),
-#                    score = c(3.8, 4, 4, 3, 3, 2, 2)) %>%
-#   arrange(score)
-# 
-# # assign score - no weighting involved yet
-# # haven't averaged across composite indicators
-# assessment.targets <- assessment.targets %>%
-#   dplyr::mutate(score = case_when(category == "On track to exceed target" ~ 5,
-#                                   category == "On track to achieve target" ~ 4,
-#                                   category == "Progress made but insufficient to meet target" ~ 3, 
-#                                   category == "Little progress made" ~ 2,
-#                                   category == "unknown" ~ 1))
-
-# temp <- assessment.targets[assessment.targets$Primary.goal == "Thriving plants and wildlife", ] %>%
-#   dplyr::arrange(score) %>%
-#   # make variable a factor to preserve the ordering
-#   dplyr::mutate(variable = factor(variable, levels = variable))
-# 
-# ggplot(temp, aes(x = reorder(variable, desc(variable)), y = score, colour = score)) +
-#   geom_point(size = 8) +
-#   coord_flip() +
-#   theme_bw() +
-#   theme(
-#     panel.grid.minor.x = element_blank(),
-#     panel.grid.minor.y = element_blank(),
-#     panel.grid.major.y = element_blank(),
-#     #axis.text = element_text( size=48 ),
-#     legend.position="none"
-#   ) +
-#   scale_y_continuous(labels = rev(c("On track to \nexceed target",
-#                                     "On track to \nachieve target",
-#                                     "Progress made \nbut insufficient \nto meet target", 
-#                                     "Little progress \nmade",
-#                                     "Unknown")),
-#                      breaks = c(1, 2, 3, 4, 5),
-#                      limits = c(1, 5)) +
-#   scale_color_gradient(low= "#DB4325", high="#006164") +
-#   ylab("") +
-#   xlab("")
-# 
-# 
-# 
+#
+#
+#
 # 
 # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
 # # haven't updated code from here on, the below probably won't work at all anymore
@@ -280,7 +202,7 @@ visualise_assessment(classification = "natural.capital.framework",
 # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
 # # try another way of visualizing assessment
 # 
-# colour.lookup <- data.frame(trend = c("strong increase",
+# colour_lookup <- data.frame(trend = c("strong increase",
 #                                       "moderate increase",
 #                                       "little change",
 #                                       "moderate decrease", 
@@ -302,7 +224,7 @@ visualise_assessment(classification = "natural.capital.framework",
 # 
 # temp$variable <- factor(temp$variable, levels = temp$variable[order(temp$score)])
 # 
-# temp <- left_join(temp, colour.lookup, by= c("category" = "trend"))
+# temp <- left_join(temp, colour_lookup, by= c("category" = "trend"))
 # 
 # ggplot(temp, aes(x = variable, y = score, colour = variable)) +
 #   geom_point(size = 4) +
@@ -353,7 +275,7 @@ visualise_assessment(classification = "natural.capital.framework",
 #                            category == "moderate increase" ~ 4,
 #                            category == "strong increase" ~ 5)) %>%
 #   left_join(.,
-#             colour.lookup, 
+#             colour_lookup, 
 #             by= c("category" = "trend")) %>%
 #   arrange(Indicator)
 # 
@@ -378,7 +300,7 @@ visualise_assessment(classification = "natural.capital.framework",
 #                            category == "moderate increase" ~ 4,
 #                            category == "strong increase" ~ 5)) %>%
 #   left_join(.,
-#             colour.lookup, 
+#             colour_lookup, 
 #             by= c("category" = "trend")) %>%
 #   arrange(Indicator)
 # 
