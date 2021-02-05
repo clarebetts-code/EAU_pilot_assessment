@@ -125,7 +125,23 @@ load_process_data <- function(filename){
 # functions calculate the smoothed trend and return warnings where appropriate
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # x <- dat_list
+#' @title get_smoothed_trend
+#' @description Apply a smoothed trend to your data, predicting value from year.
+#'
+#' @param x A dataframe (dat_list) output by load_process_data
+#'
+#' @return A list of smoothed trends
+#' @export
+#'
 get_smoothed_trend <- function(x){
+  
+  # function to do the smoothing
+  # x <- dat_list[[1]]
+  quiet_smoother <- quietly(function(x){
+    predict(loess(value ~ year, data = x))
+  })
+  
+  
   evie <- map(x, ~quiet_smoother(x=.x)) %>%
     set_names(variables)
   
@@ -144,11 +160,7 @@ get_smoothed_trend <- function(x){
   return(evie_result)
 }
 
-# function to do the smoothing
-# x <- dat_list[[1]]
-quiet_smoother <- quietly(function(x){
-  predict(loess(value ~ year, data = x))
-})
+
 
 
 
