@@ -14,7 +14,7 @@
 
 
 #' @title load and process metadata
-#' load_porcess_metadata takes an input csv and parses it to return three
+#' load_process_metadata takes an input csv and parses it to return three
 #' dataframes, targets, thresholds and goal.indicator.lookup. These outputs are
 #' assigned directly to the global environment.
 #'
