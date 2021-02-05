@@ -135,24 +135,27 @@ visualise_assessment(classification = "natural.capital.framework",
 
 # bespoke grouping
 assessment_short <- assessment_short %>%
-  mutate(Group = case_when(Indicator %in% c("A1", "A2", "A3", "A4", "A5", "A6", "A7", "B3", "D2", "D3", "E3", "J1") ~ "Atmosphere"))
+  mutate(Group = case_when(Indicator %in% c("A1", "A2", "A3", "A4", "A5", "A6", "A7", "B3", "D2", "D3", "E3", "J1") ~ "Atmosphere",
+                           TRUE ~ "Other"))
 
 assessment_long <- assessment_long %>%
-  mutate(Group = case_when(Indicator %in% c("A1", "A2", "A3", "A4", "A5", "A6", "A7", "B3", "D2", "D3", "E3", "J1") ~ "Atmosphere"))
+  mutate(Group = case_when(Indicator %in% c("A1", "A2", "A3", "A4", "A5", "A6", "A7", "B3", "D2", "D3", "E3", "J1") ~ "Atmosphere",
+                           TRUE ~ "Other"))
 
 assessment_target <- assessment_target %>%
-  mutate(Group = case_when(Indicator %in% c("A1", "A2", "A3", "A4", "A5", "A6", "A7", "B3", "D2", "D3", "E3", "J1") ~ "Atmosphere"))
+  mutate(Group = case_when(Indicator %in% c("A1", "A2", "A3", "A4", "A5", "A6", "A7", "B3", "D2", "D3", "E3", "J1") ~ "Atmosphere",
+                           TRUE ~ "Other"))
 
 p1 <- visualise_assessment(classification = "Group", 
                            group = "Atmosphere",
                            x = assessment_short,
-                           myLab = "Short term") +
+                           myLab = "Short term trend") +
   labs(title = "")
 
 p2 <- visualise_assessment(classification = "Group", 
                            group = "Atmosphere",
                            x = assessment_long,
-                           myLab = "Long term")
+                           myLab = "Long term trend")
 
 p3 <- visualise_assessment(classification = "Group", 
                      group = "Atmosphere",
@@ -163,125 +166,59 @@ p3 <- visualise_assessment(classification = "Group",
 cowplot::plot_grid(p1, p2, p3,
                    nrow = 1)
 
-# 
-# 
-# 
-# # summarise by primary goal
-# primary_goals <- unique(goal_indicator_lookup$Primary.goal)
-# 
-# i <- "Clean air" 
-# 
-# # summarise by goal
-# for (i in primary_goals){
-#   temp <- data.frame("Primary.goal" = c(assessment_long$Primary.goal, assessment_short$Primary.goal),
-#                      "category" = c(assessment_long$category, assessment_short$category),
-#                      "term" = c(rep("Long term", nrow(assessment_long)),
-#                                 rep("Short term", nrow(assessment_short)))) %>%
-#     dplyr::filter(Primary.goal == i)
-#   
-#   assessment_table <- assessment_table.builder(temp)
-#   
-#   figure <- assessment_plot(assessment_table) +
-#     labs(title = i)
-#   
-#   print(figure)
-# } 
-# 
-# # summarise by indicator
-# i <- "A1"
-# 
-# for (i in sort(unique(assessment$Indicator))){
-#   temp <- data.frame("Indicator" = c(assessment_long$Indicator, assessment_short$Indicator),
-#                      "category" = c(assessment_long$category, assessment_short$category),
-#                      "term" = c(rep("Long term", nrow(assessment_long)),
-#                                 rep("Short term", nrow(assessment_short)))) %>%
-#     dplyr::filter(Indicator == i)
-#   
-#   # if there is data for the indicator
-#   if(nrow(temp) > 0){
-#     assessment_table <- assessment_table.builder(temp)
-#     
-#     figure <- assessment_plot(assessment_table) +
-#       labs(title = i)
-#     
-#     print(figure)
-#   }
-# } 
-# 
-# # summarise by natural capital framework
-# i <- "Pressure"
-# for (i in sort(unique(assessment$natural.capital.framework))){
-#   temp <- data.frame("natural.capital.framework" = c(assessment_long$natural.capital.framework, assessment_short$natural.capital.framework),
-#                      "category" = c(assessment_long$category, assessment_short$category),
-#                      "term" = c(rep("Long term", nrow(assessment_long)),
-#                                 rep("Short term", nrow(assessment_short)))) %>%
-#     dplyr::filter(natural.capital.framework == i)
-#   
-#   if(nrow(temp) > 0){
-#     assessment_table <- assessment_table.builder(temp)
-#     
-#     figure <- assessment_plot(assessment_table) +
-#       labs(title = i)
-#     
-#     print(figure)
-#   }
-# } 
-# 
-# 
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# # Plot results - target assessment
-# # an example
-# #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# 
-# colour_lookup <- data.frame(score = c("On track to exceed target",
-#                                       "On track to achieve target",
-#                                       "Progress made but insufficient to meet target", 
-#                                       "Little progress made",
-#                                       "unknown"),
-#                             cols = c("#006164", "#57C4AD", "#EDA247", "#DB4325", "grey"))
-# 
-# temp <- data.frame(variable = c("A1", "A2", "A3", "A4", "A5", "A6", "A7"),
-#                    score = c(3.8, 4, 4, 3, 3, 2, 2)) %>%
-#   arrange(score)
-# 
-# # assign score - no weighting involved yet
-# # haven't averaged across composite indicators
-# assessment_targets <- assessment_targets %>%
-#   dplyr::mutate(score = case_when(category == "On track to exceed target" ~ 5,
-#                                   category == "On track to achieve target" ~ 4,
-#                                   category == "Progress made but insufficient to meet target" ~ 3, 
-#                                   category == "Little progress made" ~ 2,
-#                                   category == "unknown" ~ 1))
 
-# temp <- assessment_targets[assessment_targets$Primary.goal == "Thriving plants and wildlife", ] %>%
-#   dplyr::arrange(score) %>%
-#   # make variable a factor to preserve the ordering
-#   dplyr::mutate(variable = factor(variable, levels = variable))
-# 
-# ggplot(temp, aes(x = reorder(variable, desc(variable)), y = score, colour = score)) +
-#   geom_point(size = 8) +
-#   coord_flip() +
-#   theme_bw() +
-#   theme(
-#     panel.grid.minor.x = element_blank(),
-#     panel.grid.minor.y = element_blank(),
-#     panel.grid.major.y = element_blank(),
-#     #axis.text = element_text( size=48 ),
-#     legend.position="none"
-#   ) +
-#   scale_y_continuous(labels = rev(c("On track to \nexceed target",
-#                                     "On track to \nachieve target",
-#                                     "Progress made \nbut insufficient \nto meet target", 
-#                                     "Little progress \nmade",
-#                                     "Unknown")),
-#                      breaks = c(1, 2, 3, 4, 5),
-#                      limits = c(1, 5)) +
-#   scale_color_gradient(low= "#DB4325", high="#006164") +
-#   ylab("") +
-#   xlab("")
-# 
-# 
-# 
+
+
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Plot results - target assessment
+# an example
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+assessment_target <- assessment_target %>%
+  mutate(score = case_when(category == "Unknown" ~ 0,
+                           category == "No target" ~ 0,
+                           category == "Insufficient  progress" ~ 1,
+                           category == "Some progress towards target" ~ 2,
+                           category == "Substantial progress" ~ 3,
+                           category == "Target met" ~ 4)) %>%
+  arrange(score)
+
+to_plot <- assessment_target %>%
+  filter(Group == "Atmosphere",
+         score > 0) %>%
+  dplyr::arrange(score) %>%
+  # make variable a factor to preserve the ordering
+  dplyr::mutate(variable = factor(variable, levels = variable))
+
+ggplot(to_plot, aes(x = reorder(variable, desc(variable)), y = score, colour = score)) +
+  geom_point(size = 8) +
+  coord_flip() +
+  theme_bw() +
+  theme(
+    panel.grid.minor.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    panel.grid.major.y = element_blank(),
+    #axis.text = element_text( size=48 ),
+    legend.position="none"
+  ) +
+  scale_y_continuous(labels = rev(c("Target \nmet",
+                                    "Substantial \nprogress",
+                                    "Some progress \ntowards target",
+                                    "Insufficient  \nprogress")),
+                     breaks = c(1, 2, 3, 4),
+                     limits = c(1, 4)) +
+  scale_color_gradient(low= "#DB4325", high="#006164") +
+  ylab("") +
+  xlab("")
+
+temp <- assessment_targets[assessment_targets$Primary.goal == "Thriving plants and wildlife", ] 
+
+
+#
+#
+#
 # 
 # #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  
 # # haven't updated code from here on, the below probably won't work at all anymore
