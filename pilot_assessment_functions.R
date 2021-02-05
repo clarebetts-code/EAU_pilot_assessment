@@ -10,7 +10,12 @@
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # file must contain columns "variable", "target", "Indicator", "Primary.goal", "natural.capital.framework", 
 # "Threshold1", "Threshold2", "Threshold3", "Threshold4", "target_trend"
-load_process_metadata <- function(dat){
+# foo <- "metadata.csv"
+load_process_metadata <- function(foo){
+  
+  # read in data
+  dat <- read.csv(foo)
+  
   # store targets
   targets <- unique(dat[, c("variable", "target", "target_year", "target_trend")])
   
@@ -19,16 +24,24 @@ load_process_metadata <- function(dat){
   
   goal.indicator.lookup <- unique(dat[, c("variable", "Indicator", "Primary.goal", "natural.capital.framework")]) 
   
-  return(list(targets = targets,
-              thresholds = thresholds, 
-              goal.indicator.lookup = goal.indicator.lookup))
+  # assign objects to global environment
+  assign("targets", targets, envir = .GlobalEnv)
+  assign("thresholds", thresholds, envir = .GlobalEnv)
+  assign("goal.indicator.lookup", goal.indicator.lookup, envir = .GlobalEnv)
+  
+  #return(NULL)
 }
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # function to load and process raw data file
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # file must contain columns "value", "variable"
-load_process_data <- function(dat){
+# foo <- "25.year.data.csv"
+load_process_data <- function(foo){
+  
+  # read in data
+  dat <- read.csv(foo)
+  
   dat <- dat %>% 
     mutate(
       # value as numeric
@@ -51,8 +64,10 @@ load_process_data <- function(dat){
     # assign names
     purrr::set_names(variables)
   
-  return(list(dat_list = dat_list,
-              variables = variables))
+  # assign objects to global environment
+  assign("dat_list", dat_list, envir = .GlobalEnv)
+  assign("variables", variables, envir = .GlobalEnv)
+
 }
 
 
@@ -62,32 +77,28 @@ load_process_data <- function(dat){
 # year until target reached (n)
 # n = log(current value/target value) / log(1 + rate of change)
 # https://intl.siyavula.com/read/maths/grade-12/finance/03-finance-01
-# this function doesn't yet distinguish between those indicators which are traveling away 
-# from their target because the target is already met, and those where the indicators are s
-# imply moving in teh wrong direction
-years_until_target_reached <- function(rate.of.change, temp_target, final.value){
+
+years_until_target_reached <- function(rate.of.change, final.value, temp_target, temp_target_trend){
   
-  # if the trend is decreasing
-  if (rate.of.change < 0){
     years <- case_when(
-      # if target is greater than the final value
+      # if the desired trend is decreasing, and target is greater than the final value
       # i.e. target met already
-      temp_target > final.value ~ Inf,
-      # everything else calculate number of years
-      TRUE ~ abs(log(final.value/temp_target)/log(1 + rate.of.change)))
-  }
-  
-  # if the trend is increasing
-  if (rate.of.change > 0) {
-    years <- case_when(
-      # if the target is smaller than the final value 
+      temp_target_trend == "decrease" & temp_target > final.value ~ 0,
+      # if the trend is increasing, and the target is smaller than the final value 
       # i.e. target met already
-      temp_target < final.value ~ Inf,
+      temp_target_trend == "increase" & temp_target < final.value ~ 0,
+      
+      # if target is less than final value, but rate of change is positive
+      # i.e. moving away from target
+      temp_target < final.value & rate.of.change > 0 ~ Inf,
+      # if target is greater than final value, but rate of change is negative
+      # i.e. moving away from target
+      temp_target > final.value & rate.of.change < 0 ~ Inf,
+      
       # everything else calculate number of years
-      TRUE ~ abs(log(final.value/temp_target)/log(1 + rate.of.change)))
-  }
-  # no condition for if trend == 0
-  
+      TRUE ~ abs(log(final.value/temp_target)/log(1 + rate.of.change))
+    )
+
   return(years)
 }
 
@@ -139,7 +150,7 @@ trend_assess_this <- function(x, term = c("short", "long"),
     select(Threshold1, Threshold2, Threshold3, Threshold4) 
   
   # if target trend is to decrease then reverse the labels
-  trend_labels <- c("strong decline", "moderate decline", "little change", "moderate improvement", "strong improvement") 
+  trend_labels <- c("Strong decline", "Moderate decline", "Little change", "Moderate improvement", "Strong improvement") 
   
   if (target_trend == "increase") {
     trend_labels <- trend_labels
@@ -154,7 +165,7 @@ trend_assess_this <- function(x, term = c("short", "long"),
     first.value <- NA
     final.value <- NA
     rate.of.change <- NA
-    category <- "unknown"
+    category <- "Unknown"
     
     } else {
       category <- case_when(rate.of.change < temp_threshold[1] ~ trend_labels[1],
@@ -194,8 +205,8 @@ target_assess_this <- function(x,
         tail(5) 
     }
   
-  final.value <- rev(temp_dat)[1]
   first.value <- temp_dat[1]
+  final.value <- rev(temp_dat)[1]
   
   rate.of.change <- ((final.value-first.value)/first.value)/length(temp_dat)
   
@@ -205,25 +216,35 @@ target_assess_this <- function(x,
   
   temp_target_year <- targets$target_year[targets$variable == x]
     
-  years <- years_until_target_reached(rate.of.change, temp_target, final.value)
-  
+  years <- years_until_target_reached(rate.of.change, final.value, temp_target, temp_target_trend)
+ 
   category <- case_when(
-    # already reached target & target met
+    # if no target exists then years == NA
+    is.na(years) ~ "No target",
+    
+    # already reached target value & year & target met
     temp_target_year < as.numeric(format(Sys.Date(), "%Y")) & final.value <= temp_target & temp_target_trend == "decrease" ~ "Target met",
     temp_target_year < as.numeric(format(Sys.Date(), "%Y")) & final.value >= temp_target & temp_target_trend == "increase" ~ "Target met",
     
-    # already reached target & target not met
+    # already reached target value & year & target not met
     temp_target_year < as.numeric(format(Sys.Date(), "%Y")) & final.value <= temp_target & temp_target_trend == "increase" ~ "Target not met",
     temp_target_year < as.numeric(format(Sys.Date(), "%Y")) & final.value >= temp_target & temp_target_trend == "decrease" ~ "Target not met",
     
+    # already passed target
+    temp_target_trend == "decrease" & final.value <= temp_target ~ "Target met",
+    temp_target_trend == "increase" & final.value >= temp_target ~ "Target met",
     
     # moving away from target
     rate.of.change < 0 & final.value < temp_target ~ "Insufficient  progress",
     rate.of.change > 0 & final.value > temp_target ~ "Insufficient  progress",
     
     # moving in right direction
-    (temp_target_year - as.numeric(format(Sys.Date(), "%Y"))) < years ~ "Some progress towards target",
-    (temp_target_year - as.numeric(format(Sys.Date(), "%Y"))) >= years ~ "Substantial progress"
+    # if target will be missed by more than 5 years
+    years > (temp_target_year - as.numeric(format(Sys.Date(), "%Y"))) + 5 ~ "Insufficient  progress",
+    # if target will be missed but will reach it within 5 years of target year
+    years <= (temp_target_year - as.numeric(format(Sys.Date(), "%Y"))) + 5 ~ "Some progress towards target",
+    # if target will be reached before the target year
+    years <= (temp_target_year - as.numeric(format(Sys.Date(), "%Y"))) ~ "Substantial progress"
       )
 
   return(list(first.value = first.value,
@@ -235,7 +256,7 @@ target_assess_this <- function(x,
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Function to do teh three assessments
+# Function to do the three assessments
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 do_assessment <- function(variables, 
@@ -296,3 +317,78 @@ do_assessment <- function(variables,
               assessment.short = assessment.short))
 }
 
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Function to build the assessment table which the visualisations are built from
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# x <- temp
+# cols <- colour.lookup
+assessment.table.builder <- function(x, cols = colour.lookup){
+  
+  # count the number of variables in each category
+  ass.tab <- reshape::melt(table(x$category)/sum(table(x$category))) %>%
+    dplyr::select(
+      trend = Var.1,
+      value
+    ) %>%
+    # only over zero
+    dplyr::filter(
+      value > 0
+    ) %>%
+    left_join(., cols) 
+  
+  # get trend factor levels in the correct order
+  ass.tab$trend <- factor(ass.tab$trend,
+                          levels = levels(cols$trend))
+  ass.tab$cols <- factor(ass.tab$cols,
+                          levels = levels(cols$cols))
+  
+  return(droplevels(ass.tab))
+}
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# function to convert the assessment table to a plot
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+assessment.plot <- function(x){
+  ggplot(x, aes(x = 1, y = value, fill = trend)) +
+    geom_bar(position="stack", stat="identity") + 
+    scale_y_continuous(labels = scales::percent) + 
+    scale_fill_manual(values = levels(x$cols)) +
+    theme(panel.background = element_blank(),
+          axis.line = element_line(colour = "black"),
+          legend.position="none",
+          plot.title = element_text(hjust = 0.5, size = 25),
+          axis.text.x = element_blank(),
+          axis.ticks.x = element_blank()) +
+    labs(y = "") + 
+    geom_text(aes(label = trend), 
+              size = 4, 
+              position = position_stack(vjust = 0.5)) 
+}
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# function to visualise assessment
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# x <- assessment.target
+# myLab <- "Long term"
+# classification <- "Primary.goal"
+# group <- "Clean air"
+visualise_assessment <- function(classification = "Primary.goal", 
+                                 group = "Clean air",
+                                 x,
+                                 myLab = "assessment"){
+  
+  temp <- data.frame(classification = x[classification],
+                     "category" = x$category) %>%
+    dplyr::filter(.data[[eval(classification)]] == group)
+  
+  assessment.table <- assessment.table.builder(temp) 
+  
+  figure <- assessment.plot(assessment.table) +
+    labs(title = group,
+         x = myLab)
+  
+  print(figure)
+  
+}
