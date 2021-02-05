@@ -15,7 +15,7 @@
 
 #' @title load and process metadata
 #' load_process_metadata takes an input csv and parses it to return three
-#' dataframes, targets, thresholds and goal.indicator.lookup. These outputs are
+#' dataframes: targets, thresholds and goal.indicator.lookup. These outputs are
 #' assigned directly to the global environment.
 #'
 #' @param filename the name of the file which the data are to be read from.
@@ -62,30 +62,55 @@ load_process_metadata <- function(filename){
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # file must contain columns "value", "variable"
 # foo <- "25.year.data.csv"
-load_process_data <- function(foo){
+
+#' @title Load and process data
+#' @description load_process_data takes an input csv and parses it to return two
+#' dataframes: dat_list and variables. These outputs are
+#' assigned directly to the global environment.
+#'
+#' @param filename the name of the file which the data are to be read from.
+#' Each row of the table appears as one line of the file. If it does not
+#' contain an absolute path, the file name is relative to the
+#' current working directory, getwd().
+#' 
+#' @return Two dataframes.
+#' @export
+#'
+#' @examples
+load_process_data <- function(filename){
+  
+  # Checks that the supplied file path is a string
+  if(!is.character(filename)){
+    stop("Filename must be a string")
+  }
+  
+  # Checks that the supplied file actually exists. 
+  if(!file.exists(filename)){
+    stop(paste0("Cannot find a file called '", filename, "', check filename and try again."))
+  }
   
   # read in data
-  dat <- read.csv(foo)
+  dat <- read.csv(filename)
   
   dat <- dat %>% 
-    mutate(
+    dplyr::mutate(
       # value as numeric
       value = as.numeric(value),
       # variable as factor
       variable = as.factor(variable)
     ) %>%
     # get rid of NAs
-    drop_na() %>%
+    tidyr::drop_na() %>%
     # get rid of unused factor levels
     droplevels() %>%
     # group by variable
-    group_by(variable)
+    dplyr::group_by(variable)
   
   variables <- levels(dat$variable)
   
   dat_list <- dat  %>%
     # split in to a list of data frames
-    group_split() %>%
+    dplyr::group_split() %>%
     # assign names
     purrr::set_names(variables)
   
