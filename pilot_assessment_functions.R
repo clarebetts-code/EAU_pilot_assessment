@@ -11,10 +11,25 @@
 # file must contain columns "variable", "target", "Indicator", "Primary.goal", "natural.capital.framework", 
 # "Threshold1", "Threshold2", "Threshold3", "Threshold4", "target_trend"
 # foo <- "metadata.csv"
-load_process_metadata <- function(foo){
+
+
+#' @title load and process metadata
+#' load_porcess_metadata takes an input csv and parses it to return three
+#' dataframes, targets, thresholds and goal.indicator.lookup. These outputs are
+#' assigned directly to the global environment.
+#'
+#' @param filename the name of the file which the data are to be read from.
+#' Each row of the table appears as one line of the file. If it does not
+#' contain an absolute path, the file name is relative to the
+#' current working directory, getwd().
+#' 
+#' @return Three dataframes.
+#' @export
+#'
+load_process_metadata <- function(filename){
   
   # read in data
-  dat <- read.csv(foo)
+  dat <- read.csv(filename)
   
   # store targets
   targets <- unique(dat[, c("variable", "target", "target_year", "target_trend")])
