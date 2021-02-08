@@ -10,12 +10,11 @@
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # file must contain columns "variable", "target", "Indicator", "Primary.goal", "natural.capital.framework", 
 # "Threshold1", "Threshold2", "Threshold3", "Threshold4", "target_trend"
-# foo <- "metadata.csv"
-
+# filename <- "metadata.csv"
 
 #' @title load and process metadata
-#' load_process_metadata takes an input csv and parses it to return three
-#' dataframes: targets, thresholds and goal.indicator.lookup. These outputs are
+#' load_process_metadata takes an input string, reads a file in table format and creates a data frame from it, 
+#' and parses it to return three dataframes: targets, thresholds and goal_indicator_lookup. These outputs are
 #' assigned directly to the global environment.
 #'
 #' @param filename the name of the file which the data are to be read from.
@@ -61,11 +60,11 @@ load_process_metadata <- function(filename){
 # function to load and process raw data file
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # file must contain columns "value", "variable"
-# foo <- "25.year.data.csv"
+# filename <- "25.year.data.csv"
 
 #' @title Load and process data
-#' @description load_process_data takes an input csv and parses it to return two
-#' dataframes: dat_list and variables. These outputs are
+#' @description load_process_data takes an input string, reads a file in table format, creates a data frame 
+#' from it and parses it to return two dataframes: dat_list and variables. These outputs are
 #' assigned directly to the global environment.
 #'
 #' @param filename the name of the file which the data are to be read from.
@@ -122,11 +121,14 @@ load_process_data <- function(filename){
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# functions calculate the smoothed trend and return warnings where appropriate
+# function to calculate the smoothed trend and return warnings where appropriate
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # x <- dat_list
+
 #' @title get_smoothed_trend
-#' @description Apply a smoothed trend to your data, predicting value from year.
+#' @description Apply a loess smoother trend to your data, predicting value from year.
+#' Uses default setting span = 0.75 which is not appropriate for small data sets, warnings are produced
+#' and returned to the console.
 #'
 #' @param x A dataframe (dat_list) output by load_process_data
 #'
@@ -161,9 +163,6 @@ get_smoothed_trend <- function(x){
 }
 
 
-
-
-
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # function to calculate years until target reached
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -171,6 +170,22 @@ get_smoothed_trend <- function(x){
 # n = log(current value/target value) / log(1 + rate of change)
 # https://intl.siyavula.com/read/maths/grade-12/finance/03-finance-01
 
+#' @title years_until_target_reached
+#' @description Called from within target_assess_this.
+#' Calculates the number of years until the target is reached for a single indicator, 
+#' using the formula:
+#' $$ years = abs(log(final_value/temp_target)/log(1 + rate_of_change)) 
+#'years = abs(log(final_value/temp_target)/log(1 + rate_of_change)) 
+#'see https://intl.siyavula.com/read/maths/grade-12/finance/03-finance-01 for more information
+#'
+#' @param rate_of_change output from trend_assess_this or target_assess_this
+#' @param final_value output from trend_assess_this or target_assess_this
+#' @param temp_target output from target_assess_this
+#' @param temp_target_trend output from target_assess_this
+#'
+#' @return number of years (integer)
+#' @export
+#'
 years_until_target_reached <- function(rate_of_change, final_value, temp_target, temp_target_trend){
   
     years <- case_when(
@@ -199,10 +214,23 @@ years_until_target_reached <- function(rate_of_change, final_value, temp_target,
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # function to do trend assessment
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 # x <- variables[1]
+
+#' @title trend_assess_this
+#' @description Called from within do_assessment.
+#' Performs an assessment of change on an indicator or variable.
+#'
+#' @param x The name of the variable as a string.
+#' @param term either "short" for a short term assessment, or "long" for a long term assessment.
+#' @param thresholds output from load_process_metadata
+#' @param smoothed_trend output from get_smoothed_trend
+#'
+#' @return a list containing the first and last values in the series, the rare of change and the 
+#' result of the assessment.
+#' @export
+#'
+
 trend_assess_this <- function(x, term = c("short", "long"),
-                              targets, 
                               thresholds, 
                               smoothed_trend){
   
@@ -217,7 +245,7 @@ trend_assess_this <- function(x, term = c("short", "long"),
     }
   } 
   
-  if(term == "short"){
+  if (term == "short"){
     # test if there are enough years of data
     if(length(smoothed_trend[[x]]) >= short_term){
       temp_dat <- smoothed_trend[[x]] %>%
@@ -276,16 +304,28 @@ trend_assess_this <- function(x, term = c("short", "long"),
 }
 
 
-
-
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # function to do target assessment
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 # x <- variables[1]
+
+#' @title target_assess_this
+#' @description Called from within do_assessment.
+#' Performs an assessment of change against a target on an indicator or variable.
+#'
+#' @param x The name of the variable as a string.
+#' @param targets output from load_process_metadata
+#' @param smoothed_trend output from get_smoothed_trend
+#' @param target_term set by user, number of years of data to use
+#'
+#' @returna a list containing the first and last values in the series, the rare of change, the 
+#' number of years until target is reached and the result of the assessment.
+#' @export
+#'
 target_assess_this <- function(x, 
                                targets, 
-                               smoothed_trend){
+                               smoothed_trend,
+                               target_term){
   
 
   # test if there are enough years of data
@@ -295,7 +335,7 @@ target_assess_this <- function(x,
     } else {
       # use number of years set at beginning here.
       temp_dat <- smoothed_trend[[x]] %>%
-        tail(5) 
+        tail(target_term) 
     }
   
   first_value <- temp_dat[1]
@@ -352,10 +392,24 @@ target_assess_this <- function(x,
 # Function to do the three assessments
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+#' @title do_assessment
+#' @description Performs a short term, long term and target assessment on a list of variables. 
+#'
+#' @param variables String containing the names of the variables
+#' @param targets output from load_process_metadata
+#' @param thresholds output from load_process_metadata
+#' @param smoothed_trend output from get_smoothed_trend
+#' @param target_term set by user, number of years of data to use for target assessment
+#'
+#' @return
+#' @export
+#'
+#' @examples
 do_assessment <- function(variables, 
                           targets,
                           thresholds,
-                          smoothed_trend){
+                          smoothed_trend,
+                          target_term){
   # a data frame to store assessment results in
   assessment_short <- data.frame("variable" = variables,
                                  "first_value" = NA,
@@ -396,7 +450,8 @@ do_assessment <- function(variables,
     # Do an assessment against targets
     trend_assessment <- target_assess_this(variables[i],
                                            targets = targets, 
-                                           smoothed_trend = smoothed_trend)
+                                           smoothed_trend = smoothed_trend,
+                                           target_term = target_term)
     
     assessment_target$first_value[i] <- trend_assessment$first_value
     assessment_target$final_value[i] <- trend_assessment$final_value
@@ -416,6 +471,17 @@ do_assessment <- function(variables,
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # x <- temp
 # cols <- colour_lookup
+
+#' @title assessment_table_builder
+#' @description Called from wthin visualise_assessment.
+#' Builds a summary table from as assessment data frame 
+#'
+#' @param x a data frame created by do_assessment
+#' @param cols colour lookup table
+#'
+#' @return a summary data frame
+#' @export
+#'
 assessment_table_builder <- function(x, cols = colour_lookup){
   
   # count the number of variables in each category
@@ -442,6 +508,16 @@ assessment_table_builder <- function(x, cols = colour_lookup){
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # function to convert the assessment table to a plot
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#' @title assessment_plot
+#' @description Called from wthin visualise_assessment.
+#' Plots the results of an assessment in a stacked bar chart. 
+#'
+#' @param x output from assessment_table_builder
+#'
+#' @return prints a ggplot object
+#' @export
+#'
 assessment_plot <- function(x){
   ggplot(x, aes(x = 1, y = value, fill = trend)) +
     geom_bar(position="stack", stat="identity") + 
@@ -468,6 +544,19 @@ assessment_plot <- function(x){
 # myLab <- "Long term"
 # classification <- "Primary.goal"
 # group <- "Clean air"
+
+#' @title visualise_assessment
+#' @description ties assessment_table_builder and assessment_plot together to visualise the 
+#' results of as assessment.
+#'
+#' @param classification the column name from which to subset the assessment by
+#' @param group the factor level from within classification by which to subset the assessment
+#' @param x output from do_assessment
+#' @param myLab string specifying the x axis label
+#'
+#' @return prints a ggplot object
+#' @export
+#'
 visualise_assessment <- function(classification = "Primary.goal", 
                                  group = "Clean air",
                                  x,
@@ -492,6 +581,17 @@ visualise_assessment <- function(classification = "Primary.goal",
 # function to visualise target assessment (dots)
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #x <- assessment_target
+
+#' @title visualise_assessment_dot
+#' @description visualises the result of a target assessment as a dot plot.
+#'
+#' @param classification the column name from which to subset the assessment by
+#' @param group the factor level from within classification by which to subset the assessment
+#' @param x output from do_assessment
+#' @param myLab string specifying the x axis label
+#'
+#' @return prints a ggplot object
+#' @export
 visualise_assessment_dot <- function(x,
                                      classification = "Group", 
                                      group = "Atmosphere",
@@ -539,6 +639,16 @@ visualise_assessment_dot <- function(x,
 # Function to plot a smoothed trend
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #dat <- dat_list[[1]]
+
+#' @title smoothed_plot
+#' @description called from within save_smothed_strend.
+#' Visualises the smoothed trend for a variable
+#'
+#' @param dat a data frame, an element from dat_list
+#'
+#' @return a graph of the smoothed trend
+#' @export
+#' #'
 smoothed_plot <- function(dat){
   xstart1 <- max(dat$year) - short_term
   xstart2 <- max(dat$year) - long_term
@@ -588,6 +698,16 @@ smoothed_plot <- function(dat){
 # Function to save the smoothed trends
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #x <- dat_list
+
+#' @title save_smoothed_trend
+#' @description Visualises the smoothed trend for a variable
+#'
+#' @param x a list of data frames containing teh time series of each variable
+#'
+#' @return saves a .png to file. The file name is relative to the
+#' current working directory, getwd().
+#' @export
+#'
 save_smoothed_trend <- function(x){
   
   filenames <- paste0("smoothed_trends\\", names(x), ".png")
