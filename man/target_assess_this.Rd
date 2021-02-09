@@ -4,7 +4,7 @@
 \alias{target_assess_this}
 \title{target_assess_this}
 \usage{
-target_assess_this(x, targets, smoothed_trend, target_term)
+target_assess_this(x, targets, smoothed_trend, term = 5)
 }
 \arguments{
 \item{x}{The name of the variable as a string.}
@@ -13,7 +13,11 @@ target_assess_this(x, targets, smoothed_trend, target_term)
 
 \item{smoothed_trend}{output from get_smoothed_trend}
 
-\item{target_term}{set by user, number of years of data to use}
+\item{term}{set by user, number of years of data to use}
+}
+\value{
+a list containing the first and last values in the series, the rare of change, the
+number of years until target is reached and the result of the assessment.
 }
 \description{
 Called from within do_assessment.

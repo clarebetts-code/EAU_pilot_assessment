@@ -4,7 +4,7 @@
 \alias{smoothed_plot}
 \title{smoothed_plot}
 \usage{
-smoothed_plot(dat, long_term = long_term, short_term = short_term)
+smoothed_plot(dat, long_term, short_term)
 }
 \arguments{
 \item{dat}{a data frame, an element from dat_list}

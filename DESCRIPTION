@@ -16,4 +16,7 @@ Imports:
     purrr (>= 0.3.4),
     reshape (>= 0.8.8),
     tidyr (>= 1.1.2),
-    scales (>= 1.1.1)
+    scales (>= 1.1.1),
+    rlang (>= 0.4.8),
+    utils (>= 4.0.2),
+    stats (>= 4.0.2)

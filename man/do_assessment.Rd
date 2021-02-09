@@ -9,7 +9,9 @@ do_assessment(
   targets,
   thresholds,
   smoothed_trend,
-  target_term = target_term
+  short_term,
+  long_term,
+  target_term
 )
 }
 \arguments{
@@ -21,10 +23,14 @@ do_assessment(
 
 \item{smoothed_trend}{output from get_smoothed_trend}
 
+\item{short_term}{set by user, number of years of data to use for short term assessment}
+
+\item{long_term}{set by user, number of years of data to use for long term assessment}
+
 \item{target_term}{set by user, number of years of data to use for target assessment}
 }
 \value{
-
+a list of three dataframes, one for each assessment
 }
 \description{
 Performs a short term, long term and target assessment on a list of variables.
