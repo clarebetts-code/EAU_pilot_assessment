@@ -4,27 +4,16 @@
 \alias{trend_assess_this}
 \title{trend_assess_this}
 \usage{
-trend_assess_this(
-  x,
-  term = c("short", "long"),
-  thresholds,
-  smoothed_trend,
-  short_term = short_term,
-  long_term = long_term
-)
+trend_assess_this(x, term = 5, thresholds, smoothed_trend)
 }
 \arguments{
 \item{x}{The name of the variable as a string.}
 
-\item{term}{either "short" for a short term assessment, or "long" for a long term assessment.}
+\item{term}{Number of years to perform the assessment on.}
 
 \item{thresholds}{output from load_process_metadata}
 
 \item{smoothed_trend}{output from get_smoothed_trend}
-
-\item{short_term}{Number of years of data to do the short term assessment from}
-
-\item{long_term}{Number of years of data to do the long term assessment from}
 }
 \value{
 a list containing the first and last values in the series, the rare of change and the
