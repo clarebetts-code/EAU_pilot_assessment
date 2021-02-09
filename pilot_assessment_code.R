@@ -55,9 +55,14 @@ do_assessment(
   variables = variables,
   targets = targets,
   thresholds = thresholds,
-  smoothed_trend = smoothed_trend
+  smoothed_trend = smoothed_trend,
+  short_term = short_term,
+  long_term = long_term,
+  target_term = target_term
 ) %>%
-  map2(.y = names(.), ~write_csv(.x, path = paste0("data\\", .y, ".csv")))
+  purrr::map2(.y = names(.),
+              ~readr::write_csv(.x, 
+                                file = paste0("data\\", .y, ".csv")))
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

@@ -25,6 +25,7 @@
 #' @return Three dataframes.
 #' @export
 #'
+#' @import utils
 load_process_metadata <- function(filename){
 
   # Checks that the supplied file path is a string
@@ -78,6 +79,7 @@ load_process_metadata <- function(filename){
 #' @import dplyr
 #' @import tidyr
 #' @import purrr
+#' @import utils
 load_process_data <- function(filename){
 
   # Checks that the supplied file path is a string
@@ -132,7 +134,7 @@ load_process_data <- function(filename){
 #' Uses default setting span = 0.75 which is not appropriate for small data sets, warnings are produced
 #' and returned to the console.
 #'
-#' @param x A dataframe (dat_list) output by load_process_data
+#' @param x A list if data frames (dat_list) output by load_process_data
 #'
 #' @return A list of smoothed trends
 #' @export
@@ -140,17 +142,18 @@ load_process_data <- function(filename){
 #' @import dplyr
 #' @import tidyr
 #' @import purrr
+#' @import stats
 get_smoothed_trend <- function(x){
 
   # function to do the smoothing
   # x <- dat_list[[1]]
-  quiet_smoother <- quietly(function(x){
+  quiet_smoother <- purrr::quietly(function(x){
     predict(loess(value ~ year, data = x))
   })
 
 
   evie <- purrr::map(x, ~quiet_smoother(x=.x)) %>%
-    set_names(variables)
+    purrr::set_names(variables)
 
   # pull out result
   evie_result <- purrr::map(evie, "result")
@@ -175,7 +178,7 @@ get_smoothed_trend <- function(x){
 #dat <- dat_list[[1]]
 
 #' @title smoothed_plot
-#' @description called from within save_smothed_strend.
+#' @description called from within save_smoothed_trend.
 #' Visualises the smoothed trend for a variable
 #'
 #' @param dat a data frame, an element from dat_list
@@ -187,11 +190,12 @@ get_smoothed_trend <- function(x){
 #' @import cowplot
 #' @import ggplot2
 #' @import scales
+#' @import stats
 smoothed_plot <- function(dat,
-                          Long_Term = long_term,
-                          Short_Term = short_term){
-  xstart1 <- max(dat$year) - Short_Term
-  xstart2 <- max(dat$year) - Long_Term
+                          long_term,
+                          short_term){
+  xstart1 <- max(dat$year) - short_term
+  xstart2 <- max(dat$year) - long_term
   xend <- max(dat$year)
 
   p1 <- ggplot(dat, aes(x = year, y = value)) +
@@ -254,7 +258,9 @@ save_smoothed_trend <- function(x){
 
   filenames <- paste0("smoothed_trends\\", names(x), ".png")
 
-  plots <- purrr::map(x, smoothed_plot)
+  plots <- purrr::map(x, smoothed_plot, 
+                      long_term,
+                      short_term)
 
   for (i in 1:length(plots)){
     ggplot2::ggsave(filename = filenames[i],
@@ -324,42 +330,29 @@ years_until_target_reached <- function(rate_of_change,
 #' Performs an assessment of change on an indicator or variable.
 #'
 #' @param x The name of the variable as a string.
-#' @param term either "short" for a short term assessment, or "long" for a long term assessment.
+#' @param term Number of years to perform the assessment on.
 #' @param thresholds output from load_process_metadata
 #' @param smoothed_trend output from get_smoothed_trend
-#' @param long_term Number of years of data to do the long term assessment from
-#' @param short_term Number of years of data to do the short term assessment from
 #'
 #' @return a list containing the first and last values in the series, the rare of change and the
 #' result of the assessment.
 #'
 #' @import dplyr
-trend_assess_this <- function(x, term = c("short", "long"),
+#' @import rlang
+trend_assess_this <- function(x, 
+                              term = 5,
                               thresholds,
-                              smoothed_trend,
-                              Short_Term = short_term,
-                              Long_Term = long_term){
+                              smoothed_trend){
 
-  if (term == "long"){
-    # test if there are enough years of data
-    if(length(smoothed_trend[[x]]) >= Long_Term){
+
+    if(length(smoothed_trend[[x]]) >= term){
       # use number of years set at beginning here.
       temp_dat <- smoothed_trend[[x]] %>%
-        tail(Long_Term)
+        tail(term)
     } else {
       temp_dat <- {}
     }
-  }
 
-  if (term == "short"){
-    # test if there are enough years of data
-    if(length(smoothed_trend[[x]]) >= Short_Term){
-      temp_dat <- smoothed_trend[[x]] %>%
-        tail(Short_Term)
-      } else {
-          temp_dat <- {}
-        }
-    }
 
   final_value <- rev(temp_dat)[1]
   first_value <- temp_dat[1]
@@ -388,7 +381,7 @@ trend_assess_this <- function(x, term = c("short", "long"),
 
   # assign rate of change assessment
   # this seems inelegant, return to this when i have more time
-  if (is_empty(rate_of_change)){
+  if (rlang::is_empty(rate_of_change)){
     first_value <- NA
     final_value <- NA
     rate_of_change <- NA
@@ -423,26 +416,26 @@ trend_assess_this <- function(x, term = c("short", "long"),
 #' @param x The name of the variable as a string.
 #' @param targets output from load_process_metadata
 #' @param smoothed_trend output from get_smoothed_trend
-#' @param target_term set by user, number of years of data to use
+#' @param term set by user, number of years of data to use
 #'
-#' @returna a list containing the first and last values in the series, the rare of change, the
+#' @return a list containing the first and last values in the series, the rare of change, the
 #' number of years until target is reached and the result of the assessment.
 #'
 #' @import dplyr
 target_assess_this <- function(x,
                                targets,
                                smoothed_trend,
-                               Target_Term = target_term){
+                               term = 5){
 
 
   # test if there are enough years of data
   # currently uses 5 years of data
-    if(length(smoothed_trend[[x]]) < 5){
+    if(length(smoothed_trend[[x]]) < term){
       stop("Too few years of data for a target assessment")
     } else {
       # use number of years set at beginning here.
       temp_dat <- smoothed_trend[[x]] %>%
-        tail(Target_Term)
+        tail(term)
     }
 
   first_value <- temp_dat[1]
@@ -506,9 +499,12 @@ target_assess_this <- function(x,
 #' @param targets output from load_process_metadata
 #' @param thresholds output from load_process_metadata
 #' @param smoothed_trend output from get_smoothed_trend
+#' @param short_term set by user, number of years of data to use for short term assessment
+#' @param long_term set by user, number of years of data to use for long term assessment
 #' @param target_term set by user, number of years of data to use for target assessment
 #'
-#' @return
+#' @return a list of three dataframes, one for each assessment
+#' 
 #' @export
 #'
 #' @import dplyr
@@ -516,7 +512,9 @@ do_assessment <- function(variables,
                           targets,
                           thresholds,
                           smoothed_trend,
-                          Target_Term = target_term){
+                          short_term,
+                          long_term,
+                          target_term){
   # a data frame to store assessment results in
   assessment_short <- data.frame("variable" = variables,
                                  "first_value" = NA,
@@ -532,10 +530,9 @@ do_assessment <- function(variables,
   for (i in 1:length(variables)){
     # Do a long term assessment on all variables
     long_term_assessment <- trend_assess_this(variables[i],
-                                              term = "long",
-                                              thresholds = thresholds,
-                                              smoothed_trend = smoothed_trend,
-                                              Long_Term = long_term)
+                                              term = long_term,
+                                              thresholds,
+                                              smoothed_trend)
 
     assessment_long$first_value[i] <- long_term_assessment$first_value
     assessment_long$final_value[i] <- long_term_assessment$final_value
@@ -544,10 +541,9 @@ do_assessment <- function(variables,
 
     # Do a short term assessment on all variables
     short_term_assessment <- trend_assess_this(variables[i],
-                                               term = "short",
-                                               thresholds = thresholds,
-                                               smoothed_trend = smoothed_trend,
-                                               Short_Term = short_term)
+                                               term = short_term,
+                                               thresholds,
+                                               smoothed_trend)
 
     assessment_short$first_value[i] <- short_term_assessment$first_value
     assessment_short$final_value[i] <- short_term_assessment$final_value
@@ -556,9 +552,9 @@ do_assessment <- function(variables,
 
     # Do an assessment against targets
     trend_assessment <- target_assess_this(variables[i],
-                                           targets = targets,
-                                           smoothed_trend = smoothed_trend,
-                                           Target_Term = target_term)
+                                           targets,
+                                           smoothed_trend,
+                                           term = target_term)
 
     assessment_target$first_value[i] <- trend_assessment$first_value
     assessment_target$final_value[i] <- trend_assessment$final_value

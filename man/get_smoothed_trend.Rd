@@ -7,7 +7,7 @@
 get_smoothed_trend(x)
 }
 \arguments{
-\item{x}{A dataframe (dat_list) output by load_process_data}
+\item{x}{A list if data frames (dat_list) output by load_process_data}
 }
 \value{
 A list of smoothed trends
