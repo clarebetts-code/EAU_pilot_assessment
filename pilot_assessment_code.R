@@ -16,7 +16,7 @@ library(scales)
 
 
 # read in helper functions
-source("pilot_assessment_functions.R")
+source("R\\pilot_assessment_functions.R")
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # User set some inputs
@@ -24,16 +24,16 @@ source("pilot_assessment_functions.R")
 
 long_term <- 10
 short_term <- 5
-target_term <- 5 # not currently implemented
+target_term <- 5 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # loading & processing data
 # outputs are assigned to the global environment
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-load_process_metadata("metadata.csv") 
+load_process_metadata("data\\metadata.csv") 
 
-load_process_data("25.year.data.csv") 
+load_process_data("data\\25.year.data.csv") 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # calculating smoothed trend
@@ -42,6 +42,7 @@ load_process_data("25.year.data.csv")
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # use loess smoother to model value ~ time, and extract predicted values
+# this function saves plots of each trend to file
 save_smoothed_trend(dat_list)
 
 smoothed_trend <- get_smoothed_trend(dat_list)
@@ -56,20 +57,20 @@ do_assessment(
   thresholds = thresholds,
   smoothed_trend = smoothed_trend
 ) %>%
-  map2(.y = names(.), ~write_csv(.x, path = paste0(.y, ".csv")))
+  map2(.y = names(.), ~write_csv(.x, path = paste0("data\\", .y, ".csv")))
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # load assessment
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-assessment_long <- read.csv("assessment_long.csv") %>%
+assessment_long <- read.csv("data\\assessment_long.csv") %>%
   left_join(goal_indicator_lookup)
 
-assessment_short <- read.csv("assessment_short.csv")%>%
+assessment_short <- read.csv("data\\assessment_short.csv")%>%
   left_join(goal_indicator_lookup)
 
-assessment_target <- read.csv("assessment_target.csv")%>%
+assessment_target <- read.csv("data\\assessment_target.csv")%>%
   left_join(goal_indicator_lookup)
 
 
