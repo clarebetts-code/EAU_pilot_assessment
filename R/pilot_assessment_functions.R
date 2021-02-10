@@ -247,6 +247,7 @@ smoothed_plot <- function(dat,
 #' @description Visualises the smoothed trend for a variable
 #'
 #' @param x a list of data frames containing teh time series of each variable
+#' @param filepath file path to specify where to save the plots
 #'
 #' @return saves a .png to file. The file name is relative to the
 #' current working directory, getwd().
@@ -254,9 +255,9 @@ smoothed_plot <- function(dat,
 #'
 #' @import purrr
 #' @import ggplot2
-save_smoothed_trend <- function(x){
+save_smoothed_trend <- function(x, filepath){
 
-  filenames <- paste0("smoothed_trends\\", names(x), ".png")
+  filenames <- paste0(filepath, names(x), ".png")
 
   plots <- purrr::map(x, smoothed_plot, 
                       long_term,

@@ -40,9 +40,9 @@ target_term <- 5
 outputs are assigned to the global environment
 
 ```r
-load_process_metadata("data\\metadata.csv") 
+load_process_metadata("metadata.csv") 
 
-load_process_data("data\\25.year.data.csv") 
+load_process_data("25.year.data.csv") 
 ```
 
 ## Calculating smoothed trend
@@ -73,7 +73,7 @@ do_assessment(
 ) %>%
   purrr::map2(.y = names(.),
               ~readr::write_csv(.x, 
-                                file = paste0("data\\", .y, ".csv")))
+                                file = paste0(.y, ".csv")))
 ```
 
 ## Visualise result
