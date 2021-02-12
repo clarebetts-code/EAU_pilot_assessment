@@ -78,7 +78,21 @@ do_assessment(
 
 ## Visualise result
 
-Set up a dataframe containing teh colours we want to use
+Add some metadata to the assessments
+
+```r
+assessment_long <- assessment_long %>%
+  left_join(goal_indicator_lookup)
+
+assessment_short <- assessment_short %>%
+  left_join(goal_indicator_lookup)
+
+assessment_target <- assessment_target %>%
+  left_join(goal_indicator_lookup)
+
+```
+
+Set up a data frame containing the colours we want to use
 
 ```r
 colour_lookup <- data.frame(trend = c("Strong improvement",
