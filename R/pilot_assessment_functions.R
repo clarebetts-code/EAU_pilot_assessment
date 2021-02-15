@@ -474,11 +474,11 @@ target_assess_this <- function(x,
 
     # moving in right direction
     # if target will be missed by more than 5 years
-    years > (temp_target_year - as.numeric(format(Sys.Date(), "%Y"))) + 5 ~ "Insufficient  progress",
+    years > (temp_target_year - as.numeric(format(Sys.Date(), "%Y")) + 5) ~ "Insufficient  progress",
+    # if target will be reached before the target year - this needs to come before "some progress made", case_when ends at first TRUE
+    years <= (temp_target_year - as.numeric(format(Sys.Date(), "%Y"))) ~ "Substantial progress",
     # if target will be missed but will reach it within 5 years of target year
-    years <= (temp_target_year - as.numeric(format(Sys.Date(), "%Y"))) + 5 ~ "Some progress towards target",
-    # if target will be reached before the target year
-    years <= (temp_target_year - as.numeric(format(Sys.Date(), "%Y"))) ~ "Substantial progress"
+    years <= (temp_target_year - as.numeric(format(Sys.Date(), "%Y")) + 5) ~ "Some progress towards target"
       )
 
   return(list(first_value = first_value,
