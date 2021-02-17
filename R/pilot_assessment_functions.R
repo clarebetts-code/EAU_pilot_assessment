@@ -276,7 +276,7 @@ save_smoothed_trend <- function(x, filepath) {
     short_term
   )
 
-  for (i in 1:length(plots)) {
+  for (i in seq_len(plots)) {
     ggplot2::ggsave(
       filename = filenames[i],
       plot = plots[[i]],
@@ -545,7 +545,7 @@ do_assessment <- function(variables,
   assessment_long <- assessment_target <- assessment_short
 
   # i <- 1
-  for (i in 1:length(variables)) {
+  for (i in seq_len(variables)) {
     # Do a long term assessment on all variables
     long_term_assessment <- trend_assess_this(variables[i],
       term = long_term,
