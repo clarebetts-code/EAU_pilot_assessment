@@ -28,6 +28,7 @@
 #' @import utils
 load_process_metadata <- function(filename) {
 
+  # ? Is this necessary when you subsequnetly check if the file exists?
   # Checks that the supplied file path is a string
   if (!is.character(filename)) {
     stop("Filename must be a string")
@@ -49,6 +50,7 @@ load_process_metadata <- function(filename) {
 
   goal_indicator_lookup <- unique(dat[, c("variable", "Indicator", "Primary.goal", "natural.capital.framework")])
 
+  # ? Why not just return a list of dataframes to the caller?
   # assign objects to global environment
   assign("targets", targets, envir = .GlobalEnv)
   assign("thresholds", thresholds, envir = .GlobalEnv)
@@ -82,6 +84,7 @@ load_process_metadata <- function(filename) {
 #' @import utils
 load_process_data <- function(filename) {
 
+  # ? If you're going to reuse these checks, why not move them to a seperate function?
   # Checks that the supplied file path is a string
   if (!is.character(filename)) {
     stop("Filename must be a string")
@@ -117,6 +120,7 @@ load_process_data <- function(filename) {
     # assign names
     purrr::set_names(variables)
 
+  # ? Again, why assign when you could just return?
   # assign objects to global environment
   assign("dat_list", dat_list, envir = .GlobalEnv)
   assign("variables", variables, envir = .GlobalEnv)
@@ -144,12 +148,14 @@ load_process_data <- function(filename) {
 #' @import stats
 get_smoothed_trend <- function(x) {
 
+  # ? You mention span but have you tried changing any of the other default args,
+  # ? like degree = 1 too reduce noise or family = "symetric" to iteratively
+  # ? down-weight outliners?
   # function to do the smoothing
   # x <- dat_list[[1]]
   quiet_smoother <- purrr::quietly(function(x) {
     predict(loess(value ~ year, data = x))
   })
-
 
   evie <- purrr::map(x, ~ quiet_smoother(x = .x)) %>%
     purrr::set_names(variables)
@@ -164,6 +170,12 @@ get_smoothed_trend <- function(x) {
     print("Warnings generated for:")
     print(names(evie)[evie_warnings])
   }
+
+  # * Really like what you're doing here with the quiet_smoother function and
+  # * returning which dataframes produced warnings but it would be even better
+  # * if you returned the warnings themselves. I had a go and didn't get anywhere
+  # * but some googling returned https://collateral.jamesgoldie.dev/, which
+  # * might be worth a look!
 
   # return the result
   return(evie_result)
@@ -199,6 +211,7 @@ smoothed_plot <- function(dat,
 
   p1 <- ggplot(dat, aes(x = year, y = value)) +
     geom_point() +
+    # ? Didn't you create a variable of levels earlier, why not use that?
     labs(y = unique(dat$variable)) +
     stat_smooth(method = "loess", formula = y ~ x, span = 0.75) +
     theme(
@@ -258,7 +271,7 @@ smoothed_plot <- function(dat,
 #' @title save_smoothed_trend
 #' @description Visualises the smoothed trend for a variable
 #'
-#' @param x a list of data frames containing teh time series of each variable
+#' @param x a list of data frames containing the time series of each variable
 #' @param filepath file path to specify where to save the plots
 #'
 #' @return saves a .png to file. The file name is relative to the
@@ -268,6 +281,7 @@ smoothed_plot <- function(dat,
 #' @import purrr
 #' @import ggplot2
 save_smoothed_trend <- function(x, filepath) {
+
   filenames <- paste0(filepath, names(x), ".png")
 
   plots <- purrr::map(
@@ -276,6 +290,7 @@ save_smoothed_trend <- function(x, filepath) {
     short_term
   )
 
+  # ! lintr discourages the use of 1:length(...)
   for (i in seq_len(plots)) {
     ggplot2::ggsave(
       filename = filenames[i],
@@ -312,6 +327,10 @@ years_until_target_reached <- function(rate_of_change,
                                        final_value,
                                        temp_target,
                                        temp_target_trend) {
+
+  # ? So, final_value is desired outcome and temp_target is expected outcome?
+  # * I'm not entirely sure what the objects represent but the case logic is sound
+
   years <- dplyr::case_when(
     # if the desired trend is decreasing, and target is greater than the final value
     # i.e. target met already
@@ -345,11 +364,11 @@ years_until_target_reached <- function(rate_of_change,
 #' Performs an assessment of change on an indicator or variable.
 #'
 #' @param x The name of the variable as a string.
-#' @param term Number of years to perform the assessment on.
+#' @param term Number of years to perform the assessment on. Defaults to 5.
 #' @param thresholds output from load_process_metadata
 #' @param smoothed_trend output from get_smoothed_trend
 #'
-#' @return a list containing the first and last values in the series, the rare of change and the
+#' @return a list containing the first and last values in the series, the rate of change and the
 #' result of the assessment.
 #'
 #' @import dplyr
@@ -365,7 +384,6 @@ trend_assess_this <- function(x,
   } else {
     temp_dat <- {}
   }
-
 
   final_value <- rev(temp_dat)[1]
   first_value <- temp_dat[1]
@@ -394,6 +412,16 @@ trend_assess_this <- function(x,
 
   # assign rate of change assessment
   # this seems inelegant, return to this when i have more time
+
+  # ? Though I don't think there's anything necessarily wrong
+  # ? with how you're doing this, it does feel overly convoluted.
+  # ? Have you tried breaking it down into smaller functions?
+  # ? I'd suggest seperating out the calculating rate_of_change,
+  # ? generating trend_labels, and categorising rate_of_change
+  # ? elements. Also, the trend_labels are essentially bins, so
+  # ? maybe treating them as such explicitly, using, say cut()
+  # ? might help...
+
   if (rlang::is_empty(rate_of_change)) {
     first_value <- NA
     final_value <- NA
@@ -408,6 +436,7 @@ trend_assess_this <- function(x,
       rate_of_change > temp_threshold$Threshold4 ~ trend_labels[5]
     )
   }
+
   # return result
   return(list(
     first_value = first_value,
@@ -417,6 +446,9 @@ trend_assess_this <- function(x,
   ))
 }
 
+# ! When I run this as per the README, I get the following error:
+# ! Error in final_value/temp_target :
+# !  non-numeric argument to binary operator
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # function to do target assessment
@@ -456,6 +488,9 @@ target_assess_this <- function(x,
   final_value <- rev(temp_dat)[1]
 
   rate_of_change <- ((final_value - first_value) / first_value) / length(temp_dat)
+
+  # * I would definitely abstract the rate_of_change now you're using it more than
+  # * once!
 
   temp_target <- targets$target[targets$variable == x]
 
@@ -545,6 +580,26 @@ do_assessment <- function(variables,
   assessment_long <- assessment_target <- assessment_short
 
   # i <- 1
+  # ! lintr discourages the use of 1:length(...) so I've changed it to seq_len(...)
+  # ? However, why not just map over the variables directly, like this:
+  # ?
+  # ?  variables %>%
+  # ?  purrr::map(
+  # ?    ~ trend_assess_this(
+  # ?      .x,
+  # ?      term = long_term,
+  # ?      thresholds = thresholds,
+  # ?      smoothed_trend = smoothed_trend
+  # ?    )
+  # ?  ) %>% rlang::set_names(
+  # ?    variables
+  # ?  ) %>% dplyr::bind_rows(
+  # ?    .id = "variable"
+  # ?  )
+  # ?
+  # ? If you were mapping over a list of named dataframes instead of a list of
+  # ? names this could be even more concise!
+
   for (i in seq_len(variables)) {
     # Do a long term assessment on all variables
     long_term_assessment <- trend_assess_this(variables[i],
