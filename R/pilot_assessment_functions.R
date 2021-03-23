@@ -764,34 +764,35 @@ assessment_plot <- function(x) {
 #'
 #' @import dplyr
 #' @import ggplot2
-visualise_assessment <- function(classification = "Primary_goal",
-                                 group = "Clean air",
-                                 x,
-                                 myLab = "assessment",
-                                 cols = colour_lookup){
+visualise_assessment <- function(
+  # classification = "Primary_goal",
+  # group = "Clean air",
+  x,
+  myLab = "assessment",
+  cols = colour_lookup){
   
-  # if the selected column is natural_capital_framework then we need to do a bit more work
-  if (classification == "natural_capital_framework"){
-    selection2 <- gsub(pattern = "Asset - ", replacement = "", x = group)
-    
-    temp <- data.frame(classification = x[classification],
-                       "category" = x$category)
-    
-    temp <- temp[str_detect(string = temp[[classification]],
-                       pattern = selection2), ]
-  } else {
-    temp <- data.frame(classification = x[classification],
-                     "category" = x$category) %>%
+  # # if the selected column is natural_capital_framework then we need to do a bit more work
+  # if (classification == "natural_capital_framework"){
+  #   selection2 <- gsub(pattern = "Asset - ", replacement = "", x = group)
+  #   
+  #   temp <- data.frame(classification = x[classification],
+  #                      "category" = x$category)
+  #   
+  #   temp <- temp[str_detect(string = temp[[classification]],
+  #                      pattern = selection2), ]
+  # } else {
+  #   temp <- data.frame(classification = x[classification],
+  #                    "category" = x$category) %>%
+  # 
+  #   dplyr::filter(.data[[eval(classification)]] == group)
+  # }
 
-    dplyr::filter(.data[[eval(classification)]] == group)
-  }
-
-  assessment_table <- assessment_table_builder(temp,
+  assessment_table <- assessment_table_builder(x,
                                                cols = cols)
 
   figure <- assessment_plot(assessment_table) +
     ggplot2::labs(
-      title = group,
+      #title = group,
       x = myLab
     )
 
