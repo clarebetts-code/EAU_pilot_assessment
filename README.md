@@ -1,5 +1,5 @@
-# OIFassessment
-Contains the skeleton code necessary to run the pilot 25 Year Plan Outcome Indicators Framework Assessment.
+# EAU pilot assessment
+Contains the skeleton code necessary to run the pilot indicators assessment.
 
 # Installation
 
