@@ -8,7 +8,7 @@
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # function to load and process metadata file
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# file must contain columns "variable", "target", "Indicator", "Primary.goal", "natural.capital.framework",
+# file must contain columns "variable", "target", "Indicator", "Primary_goal", "natural_capital_framework",
 # "Threshold1", "Threshold2", "Threshold3", "Threshold4", "target_trend"
 # filename <- "metadata.csv"
 
@@ -47,7 +47,7 @@ load_process_metadata <- function(filename){
   # store thresholds
   thresholds <- dat[, c("variable", "Threshold1", "Threshold2", "Threshold3", "Threshold4", "target_trend")]
 
-  goal_indicator_lookup <- unique(dat[, c("variable", "Indicator", "Primary.goal", "natural.capital.framework")])
+  goal_indicator_lookup <- unique(dat[, c("variable", "Indicator", "Primary_goal", "natural_capital_framework")])
 
   # assign objects to global environment
   assign("targets", targets, envir = .GlobalEnv)
@@ -618,6 +618,7 @@ assessment_table_builder <- function(x,
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # function to convert the assessment table to a plot
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# x <- assessment_table
 
 #' @title assessment_plot
 #' @description Called from wthin visualise_assessment.
@@ -660,7 +661,7 @@ assessment_plot <- function(x){
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # x <- assessment_target
 # myLab <- "Long term"
-# classification <- "Primary.goal"
+# classification <- "Primary_goal"
 # group <- "Clean air"
 
 #' @title visualise_assessment
@@ -677,16 +678,29 @@ assessment_plot <- function(x){
 #'
 #' @import dplyr
 #' @import ggplot2
-visualise_assessment <- function(classification = "Primary.goal",
+visualise_assessment <- function(classification = "Primary_goal",
                                  group = "Clean air",
                                  x,
-                                 myLab = "assessment"){
-
-  temp <- data.frame(classification = x[classification],
+                                 myLab = "assessment",
+                                 cols = colour_lookup){
+  
+  # if the selected column is natural_capital_framework then we need to do a bit more work
+  if (classification == "natural_capital_framework"){
+    selection2 <- gsub(pattern = "Asset - ", replacement = "", x = group)
+    
+    temp <- data.frame(classification = x[classification],
+                       "category" = x$category)
+    
+    temp <- temp[str_detect(string = temp[[classification]],
+                       pattern = selection2), ]
+  } else {
+    temp <- data.frame(classification = x[classification],
                      "category" = x$category) %>%
     dplyr::filter(.data[[eval(classification)]] == group)
+  }
 
-  assessment_table <- assessment_table_builder(temp)
+  assessment_table <- assessment_table_builder(temp,
+                                               cols = cols)
 
   figure <- assessment_plot(assessment_table) +
     ggplot2::labs(title = group,
