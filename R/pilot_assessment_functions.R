@@ -45,12 +45,12 @@ load_process_metadata <- function(filename) {
   dat <- read.csv(filename)
 
   # store targets
-  targets <- unique(dat[, c("variable", "target", "target_year", "target_trend")])
+  targets <- unique(dat[, c("variable", "target", "target_year", "target_trend", "smooth_years")])
 
   # store thresholds
   thresholds <- dat[, c("variable", "Threshold1", "Threshold2", "Threshold3", "Threshold4", "target_trend")]
 
-  goal_indicator_lookup <- unique(dat[, c("variable", "Indicator", "Primary_goal", "natural_capital_framework")])
+  goal_indicator_lookup <- unique(dat[, c("variable", "Indicator", "Primary_goal", "Secondary_goal",	"Third_goal", "natural_capital_framework")])
 
   # ? Why not just return a list of dataframes to the caller?
   # assign objects to global environment
@@ -140,6 +140,7 @@ load_process_data <- function(filename) {
 #' and returned to the console.
 #'
 #' @param x A list if data frames (dat_list) output by load_process_data
+#' @param targets output from load_process_metadata
 #'
 #' @return A list of smoothed trends
 #' @export
@@ -148,29 +149,54 @@ load_process_data <- function(filename) {
 #' @import tidyr
 #' @import purrr
 #' @import stats
-get_smoothed_trend <- function(x) {
+get_smoothed_trend <- function(x, targets) {
 
   # ? You mention span but have you tried changing any of the other default args,
   # ? like degree = 1 too reduce noise or family = "symetric" to iteratively
   # ? down-weight outliners?
+  
   # function to do the smoothing
   # x <- dat_list[[1]]
   quiet_smoother <- purrr::quietly(function(x) {
-    predict(loess(value ~ year, data = x))
+    predict(loess(value ~ year, data = x, span = 0.75))
   })
 
-  evie <- purrr::map(x, ~ quiet_smoother(x = .x)) %>%
+  # check if the user has specified a shorter number of years to use
+  for (i in 1:length(x)){
+    specified_years <- targets$smooth_years[targets$variable == names(x[i])]
+    if(!is.na(specified_years)){
+      x[[i]] <- tail(x[[i]], specified_years)
+    }
+  }
+  
+  smoothed_data <- purrr::map(x, ~ quiet_smoother(x = .x)) %>%
     purrr::set_names(variables)
 
   # pull out result
-  evie_result <- purrr::map(evie, "result")
+  smoothed_data_result <- purrr::map(smoothed_data, "result")
 
+  # # need to fix instances where the indicator falls close to zero, and loess generates -ve values
+  # # there may be a more robust way of handling these instances
+  # 
+  # negative_checker <- function(x, y){
+  #   x_negative<-any(x$value < 0)
+  #   y_negative<-any(y < 0)
+  #   
+  #   if(x_negative == FALSE & y_negative == TRUE){
+  #     y[y < 0] <- 0
+  #   }
+  #   
+  #   return(y)
+  # }
+  # 
+  # testing <- map2(x, smoothed_data_result, ~ negative_checker(.x, .y))
+    
   # deal with warnings
-  evie_warnings <- purrr::map_lgl(evie, ~ length(.x$warnings) > 1)
+  smoothed_data_warnings <- purrr::map_lgl(smoothed_data, ~ length(.x$warnings) > 1)
 
-  if (sum(evie_warnings) > 0) {
+  if (sum(smoothed_data_warnings) > 0) {
     print("Warnings generated for:")
-    print(names(evie)[evie_warnings])
+    print(names(smoothed_data)[smoothed_data_warnings])
   }
 
   # * Really like what you're doing here with the quiet_smoother function and
@@ -180,7 +206,7 @@ get_smoothed_trend <- function(x) {
   # * might be worth a look!
 
   # return the result
-  return(evie_result)
+  return(smoothed_data_result)
 }
 
 
@@ -206,10 +232,18 @@ get_smoothed_trend <- function(x) {
 #' @import stats
 smoothed_plot <- function(dat,
                           long_term,
-                          short_term) {
+                          short_term,
+                          targets) {
   xstart1 <- max(dat$year) - short_term
   xstart2 <- max(dat$year) - long_term
   xend <- max(dat$year)
+  
+  # check if the user has specified a shorter number of years to use
+  specified_years <- targets$smooth_years[targets$variable == unique(dat$variable)]
+    
+  if(!is.na(specified_years)){
+    dat <- tail(dat, specified_years)
+    }
 
   p1 <- ggplot(dat, aes(x = year, y = value)) +
     geom_point() +
@@ -289,11 +323,11 @@ save_smoothed_trend <- function(x, filepath) {
   plots <- purrr::map(
     x, smoothed_plot,
     long_term,
-    short_term
+    short_term,
+    targets
   )
 
-  # ! lintr discourages the use of 1:length(...)
-  for (i in seq_len(plots)) {
+  for (i in 1:length(plots)) {
     ggplot2::ggsave(
       filename = filenames[i],
       plot = plots[[i]],
@@ -602,7 +636,7 @@ do_assessment <- function(variables,
   # ? If you were mapping over a list of named dataframes instead of a list of
   # ? names this could be even more concise!
 
-  for (i in seq_len(variables)) {
+  for (i in 1:length(variables)) {
     # Do a long term assessment on all variables
     long_term_assessment <- trend_assess_this(variables[i],
       term = long_term,
@@ -754,8 +788,6 @@ assessment_plot <- function(x) {
 #' @description ties assessment_table_builder and assessment_plot together to visualise the
 #' results of as assessment.
 #'
-#' @param classification the column name from which to subset the assessment by
-#' @param group the factor level from within classification by which to subset the assessment
 #' @param x output from do_assessment
 #' @param myLab string specifying the x axis label
 #'
@@ -798,6 +830,73 @@ visualise_assessment <- function(
 
   print(figure)
 }
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# function to visualise all three assessments in one plot
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# x <- assessment_target
+# myLab <- "Long term"
+# classification <- "Primary_goal"
+# group <- "Clean air"
+
+#' @title visualise_assessment
+#' @description makes multiple calls to visualise_assessment to group three visualisations 
+#' in one plot. The user needs to filter the assessment results to include only the results they 
+#' want to visualise. i.e. only indicators of "clean air"
+#'
+#' @param assessment_short output from do_assessment
+#' @param assessment_long output from do_assessment
+#' @param assessment_target output from do_assessment
+#' @param title The title of the plot
+#' #'
+#' @return prints a ggplot object
+#' @export
+#'
+#' @import dplyr
+#' @import ggplot2
+#' @import cowplot
+visualise_all_assessments <- function(assessment_short,
+                                      assessment_long,
+                                      assessment_target,
+                                      title = "title"){
+  p1 <- assessment_short %>%
+    visualise_assessment(x = .,
+                         myLab = "Short term trend") +
+    labs(y = "Percentage of Indicators") 
+  
+  p2 <- assessment_long %>%
+    visualise_assessment(x = .,
+                         myLab = "Long term trend") +
+    labs(y = "")
+  
+  p3 <- assessment_target %>%
+    visualise_assessment(x = .,
+                         myLab = "Target assessment") +
+    labs(y = "")
+  
+  plot_row <- cowplot::plot_grid(p1, p2, p3,
+                                 nrow = 1)
+  
+  # now add the title
+  title <- cowplot::ggdraw() + 
+    cowplot::draw_label(
+      title,
+      fontface = "plain",
+      size = 18,
+      #x = 0.2,
+      hjust = 0.5,
+      vjust = 0.5
+    ) 
+  
+  cowplot::plot_grid(
+    title, 
+    plot_row,
+    ncol = 1,
+    # rel_heights values control vertical title margins
+    rel_heights = c(0.05, 1)
+  )
+}
+
 
 
 
