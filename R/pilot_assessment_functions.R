@@ -3,9 +3,6 @@
 # Helper functions to support the pilot assessment
 # written by clare betts january 2021
 #
-
-
-
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -213,7 +210,6 @@ get_smoothed_trend <- function(x, targets) {
 }
 
 
-
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Function to plot a smoothed trend
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -339,6 +335,7 @@ save_smoothed_trend <- function(x, filepath) {
   }
 }
 
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # function to calculate years until target reached
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -424,8 +421,9 @@ trend_assess_this <- function(x,
     temp_dat <- {}
   }
 
-  final_value <- rev(temp_dat)[1]
-  first_value <- temp_dat[1]
+  # use the second and penultimate values for assessment
+  final_value <- rev(temp_dat)[2]
+  first_value <- temp_dat[2]
 
   rate_of_change <- ((final_value - first_value) / first_value) / length(temp_dat)
 
@@ -523,8 +521,9 @@ target_assess_this <- function(x,
       tail(term)
   }
 
-  first_value <- temp_dat[1]
-  final_value <- rev(temp_dat)[1]
+  # use the second and penultimate values for assessment
+  final_value <- rev(temp_dat)[2]
+  first_value <- temp_dat[2]
 
   rate_of_change <- ((final_value - first_value) / first_value) / length(temp_dat)
 
