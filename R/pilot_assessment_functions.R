@@ -514,8 +514,14 @@ target_assess_this <- function(x,
   # test if there are enough years of data
   # currently uses 5 years of data
   if (length(smoothed_trend[[x]]) < term) {
-    stop("Too few years of data for a target assessment")
+    # if there aren't set some dummy values
+    first_value <- NA
+    final_value <- NA
+    rate_of_change <- NA
+    years <- NA
+    category <- NA
   } else {
+    # if there are do assessment
     # use number of years set at beginning here.
     temp_dat <- smoothed_trend[[x]] %>%
       tail(term)
