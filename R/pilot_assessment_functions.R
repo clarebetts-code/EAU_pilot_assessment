@@ -6,6 +6,30 @@
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# function to check file names
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#' @param filename the name of the file which the data are to be read from.
+#' Each row of the table appears as one line of the file. If it does not
+#' contain an absolute path, the file name is relative to the
+#' current working directory, getwd().
+#' @return
+#' @export
+#'
+#' @examples
+filename_checker <- function(filename){
+  # ? If you're going to reuse these checks, why not move them to a seperate function?
+  # Checks that the supplied file path is a string
+  if (!is.character(filename)) {
+    stop("Filename must be a string")
+  }
+  
+  # Checks that the supplied file actually exists.
+  if (!file.exists(filename)) {
+    stop(paste0("Cannot find a file called '", filename, "', check filename and try again."))
+  }
+}
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # function to load and process metadata file
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -30,16 +54,8 @@
 #' @import utils
 load_process_metadata <- function(filename) {
 
-  # ? Is this necessary when you subsequnetly check if the file exists?
-  # Checks that the supplied file path is a string
-  if (!is.character(filename)) {
-    stop("Filename must be a string")
-  }
-
-  # Checks that the supplied file actually exists.
-  if (!file.exists(filename)) {
-    stop(paste0("Cannot find a file called '", filename, "', check filename and try again."))
-  }
+  # check file exists
+  filename_checker(filename)
 
   # read in data
   dat <- read.csv(filename)
@@ -52,14 +68,16 @@ load_process_metadata <- function(filename) {
 
   goal_indicator_lookup <- unique(dat[, c("variable", "Indicator", "Primary_goal", "Secondary_goal",	"Third_goal", "natural_capital_framework")])
 
-  # ? Why not just return a list of dataframes to the caller?
   # assign objects to global environment
+  # I think this is easier for the user (rather than returning a list of dataframes) but i may be wrong.
   assign("targets", targets, envir = .GlobalEnv)
   assign("thresholds", thresholds, envir = .GlobalEnv)
   assign("goal_indicator_lookup", goal_indicator_lookup, envir = .GlobalEnv)
 
   # return(NULL)
 }
+
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # function to load and process raw data file
@@ -86,16 +104,8 @@ load_process_metadata <- function(filename) {
 #' @import utils
 load_process_data <- function(filename) {
 
-  # ? If you're going to reuse these checks, why not move them to a seperate function?
-  # Checks that the supplied file path is a string
-  if (!is.character(filename)) {
-    stop("Filename must be a string")
-  }
-
-  # Checks that the supplied file actually exists.
-  if (!file.exists(filename)) {
-    stop(paste0("Cannot find a file called '", filename, "', check filename and try again."))
-  }
+  # check file exists
+  filename_checker(filename)
 
   # read in data
   dat <- read.csv(filename)
@@ -122,7 +132,6 @@ load_process_data <- function(filename) {
     # assign names
     purrr::set_names(variables)
 
-  # ? Again, why assign when you could just return?
   # assign objects to global environment
   assign("dat_list", dat_list, envir = .GlobalEnv)
   assign("variables", variables, envir = .GlobalEnv)
