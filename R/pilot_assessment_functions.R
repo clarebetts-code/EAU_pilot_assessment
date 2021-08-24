@@ -329,6 +329,7 @@ smoothed_plot <- function(dat,
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # x <- dat_list
 # y <- smoothed_trend
+# filepath <- "smoothed_trends\\"
 
 #' @title save_smoothed_trend
 #' @description Visualises the smoothed trend for a variable
@@ -346,13 +347,14 @@ save_smoothed_trend <- function(x, y, filepath) {
 
   filenames <- paste0(filepath, names(x), ".png")
 
+  # create plots
   plots <- purrr::map2(
     x, 
     y, 
     smoothed_plot
-    
   )
 
+  # save plots
   for (i in 1:length(plots)) {
     ggplot2::ggsave(
       filename = filenames[i],
@@ -360,6 +362,31 @@ save_smoothed_trend <- function(x, y, filepath) {
       device = "png"
     )
   }
+  
+  # add the smothed data into the original list of dataframes
+  res <- {}
+  for (i in names(x)){
+    
+    dat <- x[[i]]
+    smoothed <- y[[i]]
+    
+    dat <- dat %>%
+      tail(x = ., 
+           n = nrow(smoothed)) %>%
+      mutate(se = smoothed$se.fit,
+             smoothed = smoothed$fit
+      )
+    
+    res[[i]] <- dat
+  }
+  
+  # convert to one dataframe
+  res2 <- do.call(rbind, res)
+    
+  # save data
+  write.csv(res2, 
+            row.names = FALSE,
+            file = paste0(filepath, "smoothed_data.csv"))
 }
 
 
