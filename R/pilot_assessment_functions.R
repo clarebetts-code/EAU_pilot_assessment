@@ -448,7 +448,7 @@ do_assessment <- function(variables,
     
     # Do a long term assessment on all variables
     # we have already smoothed the correct length of time series for the long term assessemnt
-    long_term <- if(is.na(thresholds$years_long[i])){11} else {thresholds$years_long[i]}
+    long_term <- if(is.na(thresholds$years_long[i])){nrow(smoothed_trend[[i]])} else {thresholds$years_long[i]}
     
     long_term_assessment <- trend_assess_this(variables[i],
                                               term = long_term,
