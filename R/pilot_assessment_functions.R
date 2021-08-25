@@ -410,7 +410,9 @@ save_smoothed_trend <- function(x, y, filepath) {
 do_assessment <- function(variables,
                           targets,
                           thresholds,
-                          smoothed_trend) {
+                          smoothed_trend,
+                          trend_method = "total proportional change",
+                          target_method = "annual change") {
   # a data frame to store assessment results in
   assessment_short <- data.frame(
     "variable" = variables,
@@ -428,7 +430,7 @@ do_assessment <- function(variables,
   # ?
   # ?  variables %>%
   # ?  purrr::map(
-  # ?    ~ trend_assess_this(
+  # ?    ~  <- (
   # ?      .x,
   # ?      term = long_term,
   # ?      thresholds = thresholds,
@@ -453,7 +455,8 @@ do_assessment <- function(variables,
     long_term_assessment <- trend_assess_this(variables[i],
                                               term = long_term,
                                               thresholds,
-                                              smoothed_trend
+                                              smoothed_trend,
+                                              trend_method = "total proportional change"
     )
     
     assessment_long$first_value[i] <- long_term_assessment$first_value
@@ -468,7 +471,8 @@ do_assessment <- function(variables,
     short_term_assessment <- trend_assess_this(variables[i],
                                                term = short_term,
                                                thresholds,
-                                               smoothed_trend
+                                               smoothed_trend,
+                                               trend_method = "total proportional change"
     )
     
     assessment_short$first_value[i] <- short_term_assessment$first_value
@@ -480,23 +484,25 @@ do_assessment <- function(variables,
     # use the same as the short term assessment
     target_term <- short_term
     
-    trend_assessment <- target_assess_this(variables[i],
+    target_assessment <- target_assess_this(variables[i],
                                            targets,
                                            smoothed_trend,
-                                           term = target_term
+                                           term = target_term,
+                                           target_method = "annual change"
     )
     
-    assessment_target$first_value[i] <- trend_assessment$first_value
-    assessment_target$final_value[i] <- trend_assessment$final_value
-    assessment_target$rate_of_change[i] <- trend_assessment$rate_of_change
-    assessment_target$category[i] <- trend_assessment$category
-    assessment_target$years[i] <- trend_assessment$years
+    assessment_target$first_value[i] <- target_assessment$first_value
+    assessment_target$final_value[i] <- target_assessment$final_value
+    assessment_target$rate_of_change[i] <- target_assessment$rate_of_change
+    assessment_target$category[i] <- target_assessment$category
+    assessment_target$years[i] <- target_assessment$years
   }
   
   return(list(
+    assessment_short = assessment_short,
     assessment_long = assessment_long,
-    assessment_target = assessment_target,
-    assessment_short = assessment_short
+    assessment_target = assessment_target
+    
   ))
 }
 
@@ -555,6 +561,50 @@ years_until_target_reached <- function(rate_of_change,
   return(years)
 }
 
+# function to calculate the rate of change
+# x <- temp_dat
+#' @title calc_rate_of_change
+#' @description Called from within trend_assess_this and target_assess_this.
+#'
+#' @param method one of "total proportional change", "annual change", or "average annual change"
+#' @param x the data frame containing the smoothed data
+#'
+#' @return
+#' @export
+#'
+#' @examples
+calc_rate_of_change <- function(method = "total proportional change",
+                                x){
+  
+  # use the second and penultimate values for assessment
+  final_value <- rev(x$fit)[2]
+  first_value <- x$fit[2]
+  
+  #check method is appropriately specified
+  if (!(method %in% c("total proportional change", "annual change", "average annual change"))){
+    stop("trend assessment method needs to be one of 'total proportional change', 'annual change', or 'average annual change'")
+  }
+  
+  if(method == "total proportional change"){
+    rate_of_change <- ((final_value - first_value) / first_value)
+  }
+  
+  if(method == "annual change"){
+    rate_of_change <- ((final_value - first_value) / first_value) / nrow(x)
+  }
+  
+  if(method == "average annual change"){
+    rate_of_change <- x %>%
+      mutate(change = (fit-lag(fit))/lag(fit)) %>%
+      summarise(mean_change = mean(change, na.rm = TRUE)) %>%
+      pull()
+  }
+  
+  return(list(rate_of_change = rate_of_change,
+              first_value = first_value,
+              final_value = final_value))
+}
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # function to do trend assessment
@@ -569,6 +619,7 @@ years_until_target_reached <- function(rate_of_change,
 #' @param term Number of years to perform the assessment on. Defaults to 5.
 #' @param thresholds output from load_process_metadata
 #' @param smoothed_trend output from get_smoothed_trend
+#' @param method one of "total proportional change", "annual change", or "average annual change"
 #'
 #' @return a list containing the first and last values in the series, the rate of change and the
 #' result of the assessment.
@@ -577,8 +628,10 @@ years_until_target_reached <- function(rate_of_change,
 #' @import rlang
 trend_assess_this <- function(x,
                               term = 6,
+                              trend_method = "total proportional change",
                               thresholds,
                               smoothed_trend) {
+  
   if (nrow(smoothed_trend[[x]]) >= term) {
     # use number of years set at beginning here.
     temp_dat <- smoothed_trend[[x]] %>%
@@ -587,25 +640,30 @@ trend_assess_this <- function(x,
     temp_dat <- {}
   }
 
-  # use the second and penultimate values for assessment
-  final_value <- rev(temp_dat$fit)[2]
-  first_value <- temp_dat$fit[2]
-
-  rate_of_change <- ((final_value - first_value) / first_value) / length(temp_dat)
-
+  # calculate rate of change
+  res <- calc_rate_of_change(method = trend_method,
+                             x = temp_dat)
+  rate_of_change <- res$rate_of_change
+  first_value <- res$first_value
+  final_value <- res$final_value
+  
   # get threshold
   temp_threshold <- thresholds %>%
-    dplyr::filter(variable == x)
-
-  target_trend <- temp_threshold$target_trend
-
-  # select just thresholds
-  temp_threshold <- temp_threshold %>%
+    dplyr::filter(variable == x) %>%
     dplyr::select(Threshold1, Threshold2, Threshold3, Threshold4)
 
+  target_trend <- thresholds %>%
+    dplyr::filter(variable == x) %>%
+    dplyr::select(target_trend)
+  
   # if target trend is to decrease then reverse the labels
   trend_labels <- c("Strong decline", "Moderate decline", "Little change", "Moderate improvement", "Strong improvement")
 
+  # check of target_trend exists
+  if (!(target_trend %in% c("increase", "decrease"))){
+    stop("target_trend has not been specified correctly in the metadata")
+  }
+  
   if (target_trend == "increase") {
     trend_labels <- trend_labels
   }
@@ -649,10 +707,6 @@ trend_assess_this <- function(x,
   ))
 }
 
-# ! When I run this as per the README, I get the following error:
-# ! Error in final_value/temp_target :
-# !  non-numeric argument to binary operator
-
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # function to do target assessment
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -666,6 +720,8 @@ trend_assess_this <- function(x,
 #' @param targets output from load_process_metadata
 #' @param smoothed_trend output from get_smoothed_trend
 #' @param term set by user, number of years of data to use
+#' @param method one of annual change", or "average annual change", 
+#' N.B. "total proportional change" cannot be used to calculate progress towards a target
 #'
 #' @return a list containing the first and last values in the series, the rare of change, the
 #' number of years until target is reached and the result of the assessment.
@@ -674,7 +730,8 @@ trend_assess_this <- function(x,
 target_assess_this <- function(x,
                                targets,
                                smoothed_trend,
-                               term = 6) {
+                               term = 6,
+                               target_method = "annual change") {
 
   # test if there are enough years of data
   # currently uses 6 years of data
@@ -694,15 +751,12 @@ target_assess_this <- function(x,
       tail(term)
   }
 
-  # use the second and penultimate values for assessment
-  final_value <- rev(temp_dat$fit)[2]
-  first_value <- temp_dat$fit[2]
-
-  rate_of_change <- ((final_value - first_value) / first_value) / length(temp_dat)
-
-  # Note from EF-T: 
-  # * I would definitely abstract the rate_of_change now you're using it more than
-  # * once!
+  # calculate rate of change
+  res <- calc_rate_of_change(method = target_method,
+                             x = temp_dat)
+  rate_of_change <- res$rate_of_change
+  first_value <- res$first_value
+  final_value <- res$final_value
 
   temp_target <- targets$target[targets$variable == x]
 
@@ -710,6 +764,7 @@ target_assess_this <- function(x,
 
   temp_target_year <- targets$target_year[targets$variable == x]
 
+  # calculate years until target reached
   years <- years_until_target_reached(rate_of_change, final_value, temp_target, temp_target_trend)
 
   category <- dplyr::case_when(
