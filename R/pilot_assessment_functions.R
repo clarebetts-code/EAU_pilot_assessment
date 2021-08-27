@@ -769,19 +769,19 @@ target_assess_this <- function(x,
 
   category <- dplyr::case_when(
     # if no target exists then years == NA
-    is.na(years) ~ "No target",
+    is.na(years) ~ "Not applicable",
 
     # already reached target value & year & target met
-    temp_target_year < as.numeric(format(Sys.Date(), "%Y")) & final_value <= temp_target & temp_target_trend == "decrease" ~ "Target met",
-    temp_target_year < as.numeric(format(Sys.Date(), "%Y")) & final_value >= temp_target & temp_target_trend == "increase" ~ "Target met",
+    temp_target_year < as.numeric(format(Sys.Date(), "%Y")) & final_value <= temp_target & temp_target_trend == "decrease" ~ "Outcome achieved",
+    temp_target_year < as.numeric(format(Sys.Date(), "%Y")) & final_value >= temp_target & temp_target_trend == "increase" ~ "Outcome achieved",
 
     # already reached target value & year & target not met
     temp_target_year < as.numeric(format(Sys.Date(), "%Y")) & final_value <= temp_target & temp_target_trend == "increase" ~ "Target not met",
     temp_target_year < as.numeric(format(Sys.Date(), "%Y")) & final_value >= temp_target & temp_target_trend == "decrease" ~ "Target not met",
 
     # already passed target
-    temp_target_trend == "decrease" & final_value <= temp_target ~ "Target met",
-    temp_target_trend == "increase" & final_value >= temp_target ~ "Target met",
+    temp_target_trend == "decrease" & final_value <= temp_target ~ "Outcome achieved",
+    temp_target_trend == "increase" & final_value >= temp_target ~ "Outcome achieved",
 
     # moving away from target
     rate_of_change < 0 & final_value < temp_target ~ "Insufficient  progress",
@@ -793,7 +793,7 @@ target_assess_this <- function(x,
     # if target will be reached before the target year - this needs to come before "some progress made", case_when ends at first TRUE
     years <= (temp_target_year - as.numeric(format(Sys.Date(), "%Y"))) ~ "Substantial progress",
     # if target will be missed but will reach it within 5 years of target year
-    years <= (temp_target_year - as.numeric(format(Sys.Date(), "%Y")) + 5) ~ "Some progress towards target"
+    years <= (temp_target_year - as.numeric(format(Sys.Date(), "%Y")) + 5) ~ "Some progress"
   )
 
   if (rlang::is_empty(rate_of_change)) {
@@ -1063,11 +1063,11 @@ visualise_assessment_dot <- function(x,
   x <- x %>%
     dplyr::mutate(score = dplyr::case_when(
       category == "Unknown" ~ 0,
-      category == "No target" ~ 0,
+      category == "Not applicable" ~ 0,
       category == "Insufficient  progress" ~ 1,
-      category == "Some progress towards target" ~ 2,
+      category == "Some progress" ~ 2,
       category == "Substantial progress" ~ 3,
-      category == "Target met" ~ 4
+      category == "Outcome achieved" ~ 4
     )) %>%
     dplyr::filter(
       .data[[eval(classification)]] == group,
